@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scratch Game Player</title>
+  <script src="/scaffolding-min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Control Toolbar */
+    .toolbar {
+      height: 48px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+    }
+    .btn-flag {
+      background: #22c55e;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
+    }
+    .btn-flag:hover {
+      background: #16a34a;
+      transform: scale(1.05);
+    }
+    .btn-stop {
+      background: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+    }
+    .btn-stop:hover {
+      background: #dc2626;
+      transform: scale(1.05);
+    }
+    .btn-secondary {
+      background: #334155;
+      color: #cbd5e1;
+    }
+    .btn-secondary:hover {
+      background: #475569;
+      color: #ffffff;
+    }
+    .status-text {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.15);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      font-weight: 800;
+    }
+
+    /* Player Container */
+    .player-area {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #020617;
+      overflow: hidden;
+    }
+    #project-container {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #project-container canvas {
+      max-width: 100% !important;
+      max-height: 100% !important;
+      object-fit: contain;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      outline: none;
+    }
+
+    /* Overlay / Loader / Fallback */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      z-index: 20;
+      transition: opacity 0.25s ease;
+    }
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #334155;
+      border-top-color: #8b5cf6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .overlay h3 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    .overlay p {
+      font-size: 13px;
+      color: #94a3b8;
+      max-width: 420px;
+      line-height: 1.5;
+    }
+    .dropzone {
+      margin-top: 18px;
+      border: 2px dashed #475569;
+      border-radius: 16px;
+      padding: 24px 32px;
+      background: rgba(30, 41, 59, 0.5);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: #8b5cf6;
+      background: rgba(139, 92, 246, 0.1);
+      transform: translateY(-2px);
+    }
+    .dropzone span {
+      font-size: 13px;
+      font-weight: 700;
+      color: #c4b5fd;
+    }
+    .file-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Bar Controls -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button id="btn-flag" class="btn btn-flag" title="Mulai / Jalankan Game (Green Flag)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+          <line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" stroke-width="2.5"></line>
+        </svg>
+        <span>Mulai</span>
+      </button>
+
+      <button id="btn-stop" class="btn btn-stop" title="Berhenti (Stop)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="6 3 18 3 22 9 22 15 18 21 6 21 2 15 2 9 6 3"></polygon>
+        </svg>
+        <span>Stop</span>
+      </button>
+
+      <span class="badge">TurboWarp Native .sb3</span>
+    </div>
+
+    <div class="toolbar-right">
+      <span id="game-status" class="status-text">Menyiapkan Mesin...</span>
+      <button id="btn-fullscreen" class="btn btn-secondary" title="Layar Penuh">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Player Canvas Area -->
+  <div class="player-area" id="player-area">
+    <div id="project-container"></div>
+
+    <!-- Loading / Status Overlay -->
+    <div id="overlay" class="overlay">
+      <div id="spinner" class="spinner"></div>
+      <h3 id="overlay-title">Memuat Game Scratch...</h3>
+      <p id="overlay-desc">Mengambil aset game dari Google Drive</p>
+
+      <!-- Fallback Dropzone if automated fetch needs local file -->
+      <div id="dropzone" class="dropzone" style="display: none;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <span>Pilih atau Tarik File .sb3 ke sini</span>
+        <input type="file" id="file-input" class="file-input" accept=".sb3">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const container = document.getElementById('project-container');
+      const overlay = document.getElementById('overlay');
+      const overlayTitle = document.getElementById('overlay-title');
+      const overlayDesc = document.getElementById('overlay-desc');
+      const spinner = document.getElementById('spinner');
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('file-input');
+      const btnFlag = document.getElementById('btn-flag');
+      const btnStop = document.getElementById('btn-stop');
+      const btnFullscreen = document.getElementById('btn-fullscreen');
+      const gameStatus = document.getElementById('game-status');
+
+      let scaffolding = null;
+      let isLoaded = false;
+
+      function initScaffolding() {
+        if (!window.Scaffolding) {
+          showError('Gagal memuat TurboWarp Scaffolding Engine');
+          return null;
+        }
+        try {
+          const sc = new window.Scaffolding.Scaffolding();
+          sc.width = 480;
+          sc.height = 360;
+          sc.appendTo(container);
+          scaffolding = sc;
+          return sc;
+        } catch (e) {
+          console.error('[Scaffolding Init]', e);
+          showError('Inisialisasi player gagal: ' + e.message);
+          return null;
+        }
+      }
+
+      function showLoading(msg, desc) {
+        overlay.classList.remove('hidden');
+        spinner.style.display = 'block';
+        dropzone.style.display = 'none';
+        overlayTitle.textContent = msg || 'Memuat Game...';
+        overlayDesc.textContent = desc || 'Harap tunggu beberapa detik';
+        gameStatus.textContent = 'Memuat...';
+      }
+
+      function showError(msg, showPicker = true) {
+        overlay.classList.remove('hidden');
+        spinner.style.display = 'none';
+        overlayTitle.textContent = 'Perhatian';
+        overlayDesc.textContent = msg || 'Gagal memuat file game';
+        gameStatus.textContent = 'Perlu File';
+        if (showPicker) {
+          dropzone.style.display = 'flex';
+        }
+      }
+
+      function hideOverlay() {
+        overlay.classList.add('hidden');
+        gameStatus.textContent = 'Game Aktif';
+      }
+
+      async function loadBuffer(buffer) {
+        if (!scaffolding) {
+          if (!initScaffolding()) return;
+        }
+        try {
+          showLoading('Mengurai data game...', 'Mempersiapkan Sprite, Suara & Skrip');
+          await scaffolding.loadProject(buffer);
+          isLoaded = true;
+          hideOverlay();
+          scaffolding.greenFlag();
+          // Focus canvas for immediate keyboard controls
+          const canvas = container.querySelector('canvas');
+          if (canvas) canvas.focus();
+        } catch (err) {
+          console.error('[Load Error]', err);
+          showError('Format file .sb3 tidak dapat dijalankan: ' + err.message, true);
+        }
+      }
+
+      async function fetchAndLoad(driveId) {
+        showLoading('Mengambil game dari Google Drive...', 'ID: ' + driveId);
+        try {
+          // Attempt 1: Fetch via local Vite proxy
+          let res = await fetch('/api/scratch-proxy?id=' + encodeURIComponent(driveId));
+          if (!res.ok) {
+            // Attempt 2: Direct usercontent (if allowed)
+            res = await fetch('https://drive.usercontent.google.com/download?id=' + encodeURIComponent(driveId) + '&export=download');
+          }
+          if (!res.ok) {
+            throw new Error('Server mengembalikan status ' + res.status);
+          }
+          const buf = await res.arrayBuffer();
+          if (!buf || buf.byteLength < 500) {
+            throw new Error('Data file kosong atau tidak lengkap');
+          }
+          await loadBuffer(buf);
+        } catch (err) {
+          console.warn('[Fetch Failed]', err);
+          showError('Tidak dapat mengunduh langsung dari Drive (CORP security Google). Anda dapat memilih file .sb3 yang telah diunduh di bawah:', true);
+        }
+      }
+
+      // Event Listeners
+      btnFlag.addEventListener('click', () => {
+        if (scaffolding && isLoaded) {
+          scaffolding.greenFlag();
+          const canvas = container.querySelector('canvas');
+          if (canvas) canvas.focus();
+        }
+      });
+
+      btnStop.addEventListener('click', () => {
+        if (scaffolding && isLoaded) {
+          scaffolding.stopAll();
+        }
+      });
+
+      btnFullscreen.addEventListener('click', () => {
+        const area = document.getElementById('player-area');
+        if (!document.fullscreenElement) {
+          area.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      });
+
+      // Dropzone & File Input
+      dropzone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => loadBuffer(ev.target.result);
+          reader.readAsArrayBuffer(file);
+        }
+      });
+
+      window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      window.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+      window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => loadBuffer(ev.target.result);
+          reader.readAsArrayBuffer(file);
+        }
+      });
+
+      // Listen to postMessage from parent window (for base64 or buffer transfer)
+      window.addEventListener('message', async (e) => {
+        if (!e.data) return;
+        if (e.data.type === 'load-buffer' && e.data.buffer) {
+          await loadBuffer(e.data.buffer);
+        } else if (e.data.type === 'load-base64' && e.data.base64) {
+          try {
+            const b64 = e.data.base64.replace(/^data:[^;]+;base64,/, '');
+            const binStr = atob(b64);
+            const bytes = new Uint8Array(binStr.length);
+            for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+            await loadBuffer(bytes.buffer);
+          } catch (err) {
+            showError('Gagal membaca data base64: ' + err.message);
+          }
+        }
+      });
+
+      // Auto start from query parameter ?id=...
+      const urlParams = new URLSearchParams(window.location.search);
+      const driveId = urlParams.get('id');
+      initScaffolding();
+      if (driveId) {
+        fetchAndLoad(driveId);
+      } else {
+        showError('Pilih file game .sb3 untuk mulai bermain', true);
+      }
+    })();
+  </script>
+</body>
+</html>
