@@ -67,13 +67,13 @@ export const Lightbox = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Compute offset from center axis so side cards peek out symmetrically with ideal framing
+  // Compute offset from center axis so side cards peek out with elegant overlap behind center card
   const getSideOffset = () => {
-    if (windowWidth >= 1536) return 480;
-    if (windowWidth >= 1280) return 420;
-    if (windowWidth >= 1024) return 350;
-    if (windowWidth >= 768) return 280;
-    return 180;
+    if (windowWidth >= 1536) return 340;
+    if (windowWidth >= 1280) return 310;
+    if (windowWidth >= 1024) return 270;
+    if (windowWidth >= 768) return 220;
+    return 140;
   };
   const sideOffset = getSideOffset();
 
