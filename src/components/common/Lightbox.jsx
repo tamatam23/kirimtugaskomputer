@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import gsap from 'gsap';
 import {
   X,
   ZoomIn,
@@ -86,45 +87,49 @@ export const Lightbox = ({
   const prevItem = items.length > 0 && activeIndex > 0 ? items[activeIndex - 1] : null;
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
-  // 3D Deck Swap Carousel Variants (Clean 3D slide-flip into center stage with ZERO ghosting)
-  const carouselVariants = {
-    enter: (dir) => ({
-      x: dir > 0 ? sideOffset : -sideOffset,
-      y: 0,
-      scale: 0.92,
-      rotateZ: dir > 0 ? 7 : -7,
-      rotateY: dir > 0 ? -16 : 16,
-      opacity: 0.7,
-    }),
-    center: {
-      x: 0,
-      y: 0,
-      scale: 1,
-      rotateZ: 0,
-      rotateX: 0,
-      rotateY: 0,
-      opacity: 1,
-      transition: {
-        x: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
-        scale: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
-        rotateZ: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
-        rotateY: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
-        opacity: { duration: 0.28, ease: 'easeOut' },
+  const centerCardRef = useRef(null);
+  const isFirstMount = useRef(true);
+
+  // GSAP 3D Slide-Flip Tween on Card Switch
+  useEffect(() => {
+    if (!centerCardRef.current) return;
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      gsap.fromTo(
+        centerCardRef.current,
+        { scale: 0.94, opacity: 0, y: 15 },
+        { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: 'power2.out', force3D: true }
+      );
+      return;
+    }
+
+    if (direction === 0) return;
+
+    // Cinematic GSAP 3D Flip & Slide into Center Stage (Ultra-Smooth, Zero Bounce, Zero Ghosting)
+    gsap.fromTo(
+      centerCardRef.current,
+      {
+        x: direction > 0 ? (sideOffset * 0.92) : -(sideOffset * 0.92),
+        rotationY: direction > 0 ? -18 : 18,
+        rotationZ: direction > 0 ? 7 : -7,
+        scale: 0.91,
+        opacity: 0.65,
+        transformPerspective: 1200,
+        transformOrigin: 'center center',
       },
-    },
-    exit: (dir) => ({
-      x: dir > 0 ? -45 : 45,
-      y: 0,
-      scale: 0.96,
-      rotateZ: dir > 0 ? -2 : 2,
-      rotateY: dir > 0 ? 4 : -4,
-      opacity: 0,
-      transition: {
-        duration: 0.16,
-        ease: 'easeOut',
-      },
-    }),
-  };
+      {
+        x: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        scale: 1,
+        opacity: 1,
+        duration: 0.52,
+        ease: 'power3.out',
+        force3D: true,
+        clearProps: 'transformPerspective,transformOrigin',
+      }
+    );
+  }, [item?.id, direction, sideOffset]);
 
   // Helper renderer for stacked side preview cards (left & right 3D deck like Microsoft Edge)
   const renderSideCard = (subItem, type) => {
@@ -515,34 +520,13 @@ export const Lightbox = ({
             />
           </div>
 
-          <AnimatePresence custom={direction} mode="popLayout" initial={false}>
-            <motion.div
-              key={item.id}
-              custom={direction}
-              variants={carouselVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              drag={!isGameScratch && !isPdf && !isOffice && zoomLevel === 1 ? 'x' : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.65}
-              onDragEnd={(e, { offset }) => {
-                const swipeThreshold = 55;
-                if (offset.x < -swipeThreshold && hasNext && onNext) {
-                  setDirection(1);
-                  onNext();
-                } else if (offset.x > swipeThreshold && hasPrev && onPrev) {
-                  setDirection(-1);
-                  onPrev();
-                }
-              }}
-              className={`flex items-center justify-center max-w-full max-h-full z-20 ${
-                !isGameScratch && !isPdf && !isOffice && zoomLevel === 1
-                  ? 'cursor-grab active:cursor-grabbing'
-                  : ''
-              }`}
-              style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
-            >
+          {/* Center Card Container driven by GSAP 3D Engine */}
+          <div
+            ref={centerCardRef}
+            key={`center-${item.id}`}
+            className="flex items-center justify-center max-w-full max-h-full z-20 select-none"
+            style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
+          >
               {isGameScratch ? (
                 /* 1. Interactive Scratch / TurboWarp Player Frame */
                 <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] aspect-[4/3] sm:aspect-video max-h-[72vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
@@ -828,8 +812,7 @@ export const Lightbox = ({
                   </div>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+          </div>
 
           {/* Right Preview Card (Medium Size, 3D Coverflow) */}
           {nextItem && renderSideCard(nextItem, 'next')}
