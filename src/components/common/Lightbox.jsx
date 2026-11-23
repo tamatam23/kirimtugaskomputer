@@ -86,16 +86,15 @@ export const Lightbox = ({
   const prevItem = items.length > 0 && activeIndex > 0 ? items[activeIndex - 1] : null;
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
-  // 3D Deck Swap Carousel Variants (matches Microsoft Edge video)
+  // 3D Deck Swap Carousel Variants (Smooth glide with ZERO bounce)
   const carouselVariants = {
     enter: (dir) => ({
-      x: dir > 0 ? (sideOffset + 60) : -(sideOffset + 60),
+      x: dir > 0 ? (sideOffset + 40) : -(sideOffset + 40),
       y: 0,
       scale: 0.92,
       rotateZ: dir > 0 ? 7 : -7,
-      rotateY: dir > 0 ? -10 : 10,
-      opacity: 0.7,
-      filter: 'blur(1px)',
+      rotateY: dir > 0 ? -8 : 8,
+      opacity: 0,
     }),
     center: {
       x: 0,
@@ -105,31 +104,27 @@ export const Lightbox = ({
       rotateX: 0,
       rotateY: 0,
       opacity: 1,
-      filter: 'blur(0px)',
       transition: {
-        x: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
-        scale: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
-        rotateZ: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
-        rotateY: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        x: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+        rotateZ: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+        rotateY: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
         opacity: { duration: 0.22, ease: 'easeOut' },
-        filter: { duration: 0.15 },
       },
     },
     exit: (dir) => ({
-      x: dir > 0 ? -(sideOffset + 60) : (sideOffset + 60),
+      x: dir > 0 ? -(sideOffset + 40) : (sideOffset + 40),
       y: 0,
       scale: 0.92,
       rotateZ: dir > 0 ? -7 : 7,
-      rotateY: dir > 0 ? 10 : -10,
-      opacity: 0.7,
-      filter: 'blur(1px)',
+      rotateY: dir > 0 ? 8 : -8,
+      opacity: 0,
       transition: {
-        x: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
-        scale: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
-        rotateZ: { type: 'spring', stiffness: 280, damping: 28, mass: 0.85 },
-        rotateY: { type: 'spring', stiffness: 280, damping: 28, mass: 0.85 },
-        opacity: { duration: 0.2, ease: 'easeIn' },
-        filter: { duration: 0.15 },
+        x: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        scale: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        rotateZ: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        rotateY: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        opacity: { duration: 0.18, ease: 'easeIn' },
       },
     }),
   };
@@ -176,7 +171,7 @@ export const Lightbox = ({
             boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
           }}
           whileTap={{ scale: 0.88 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
           onClick={(e) => {
             e.stopPropagation();
             if (isLeft) {
@@ -193,9 +188,9 @@ export const Lightbox = ({
           style={{ transformStyle: 'preserve-3d' }}
           title={`Klik untuk buka karya: ${subItem.title}`}
         >
-          <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-gradient-to-b from-[#141829]/95 via-[#0F1220]/95 to-[#0A0D18]/95 backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-52 sm:w-60 md:w-68 lg:w-76 xl:w-80 h-[56vh] sm:h-[62vh] max-h-[620px] flex flex-col group hover:border-purple-400/90 transition-all">
+          <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-52 sm:w-60 md:w-68 lg:w-76 xl:w-80 h-[56vh] sm:h-[62vh] max-h-[620px] flex flex-col group hover:border-purple-400/90 transition-all">
             {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
-            <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0">
+            <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0 bg-[#12162A] border-b border-white/5">
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
                 {isLeft ? <ChevronLeft size={13} /> : null}
                 <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
@@ -207,7 +202,7 @@ export const Lightbox = ({
             </div>
 
             {/* Media Preview Area */}
-            <div className="flex-1 w-full p-2.5 relative flex items-center justify-center overflow-hidden bg-black/40 rounded-2xl m-2.5 mt-0">
+            <div className="flex-1 w-full p-2.5 relative flex items-center justify-center overflow-hidden bg-[#070913] rounded-2xl m-2.5 mt-2.5">
               {isScratchSub ? (
                 <div className="w-full h-full rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
                   <Gamepad2 size={40} className="text-white mb-2 drop-shadow-md" />
@@ -257,7 +252,7 @@ export const Lightbox = ({
             </div>
 
             {/* Bottom Card Title & Student Name */}
-            <div className="p-3 pt-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex flex-col items-center text-center shrink-0">
+            <div className="p-3 pt-2 bg-[#0A0D1A] border-t border-white/5 flex flex-col items-center text-center shrink-0">
               <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
               <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
             </div>
@@ -417,7 +412,7 @@ export const Lightbox = ({
           <motion.button
             whileHover={{ scale: 1.15, x: -3, boxShadow: '0 0 25px rgba(168, 85, 247, 0.65)' }}
             whileTap={{ scale: 0.9 }}
-            transition={springBounce}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={(e) => {
               e.stopPropagation();
               setDirection(-1);
@@ -436,7 +431,7 @@ export const Lightbox = ({
           <motion.button
             whileHover={{ scale: 1.15, x: 3, boxShadow: '0 0 25px rgba(168, 85, 247, 0.65)' }}
             whileTap={{ scale: 0.9 }}
-            transition={springBounce}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={(e) => {
               e.stopPropagation();
               setDirection(1);
@@ -552,9 +547,9 @@ export const Lightbox = ({
             >
               {isGameScratch ? (
                 /* 1. Interactive Scratch / TurboWarp Player Frame */
-                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] aspect-[4/3] sm:aspect-video max-h-[72vh] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
+                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] aspect-[4/3] sm:aspect-video max-h-[72vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
                   {/* Game Player Bar Header */}
-                  <div className="bg-slate-900/95 text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
+                  <div className="bg-[#12162A] text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
                       <Gamepad2 size={18} className="text-amber-400 shrink-0" />
                       <strong className="text-white text-xs sm:text-sm truncate">
@@ -658,9 +653,9 @@ export const Lightbox = ({
                 </div>
               ) : isPdf ? (
                 /* 2. Fullscreen Responsive PDF Viewer */
-                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] h-[64vh] sm:h-[68vh] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
+                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] h-[64vh] sm:h-[68vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
                   {/* PDF Header Bar */}
-                  <div className="bg-slate-900/95 text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
+                  <div className="bg-[#12162A] text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
                       <FileText size={18} className="text-rose-400 shrink-0" />
                       <strong className="text-white text-xs sm:text-sm truncate">
@@ -707,8 +702,8 @@ export const Lightbox = ({
                 </div>
               ) : isOffice ? (
                 /* 3. Office Document Viewer (Word, Excel, PowerPoint) */
-                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] h-[64vh] sm:h-[68vh] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
-                  <div className="bg-slate-900/95 text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
+                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] h-[64vh] sm:h-[68vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
+                  <div className="bg-[#12162A] text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
                       <FileText size={18} className="text-blue-400 shrink-0" />
                       <strong className="text-white text-xs sm:text-sm truncate">
@@ -763,9 +758,9 @@ export const Lightbox = ({
                 </div>
               ) : (
                 /* 4. Interactive Image Viewer with Pan & Zoom inside 3D Card Deck */
-                <div className="w-[88vw] sm:w-[440px] md:w-[480px] lg:w-[520px] xl:w-[560px] max-w-[92vw] h-[64vh] sm:h-[68vh] max-h-[700px] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] backdrop-blur-2xl flex flex-col overflow-hidden">
+                <div className="w-[88vw] sm:w-[440px] md:w-[480px] lg:w-[520px] xl:w-[560px] max-w-[92vw] h-[64vh] sm:h-[68vh] max-h-[700px] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden">
                   {/* Card Header Bar */}
-                  <div className="px-5 py-3 sm:py-3.5 border-b border-white/10 bg-white/[0.03] flex items-center justify-between gap-3 shrink-0">
+                  <div className="px-5 py-3 sm:py-3.5 border-b border-slate-700/80 bg-[#12162A] flex items-center justify-between gap-3 shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-[11px] font-black shrink-0">
                         🎨 Karya Gambar
@@ -789,7 +784,7 @@ export const Lightbox = ({
 
                   {/* Card Media Stage */}
                   <div
-                    className="flex-1 w-full relative flex items-center justify-center p-3 sm:p-5 bg-black/40 overflow-hidden cursor-grab active:cursor-grabbing"
+                    className="flex-1 w-full relative flex items-center justify-center p-3 sm:p-5 bg-[#070913] overflow-hidden cursor-grab active:cursor-grabbing"
                     onWheel={(e) => {
                       if (e.deltaY < 0) setZoomLevel((prev) => Math.min(prev + 0.15, 5));
                       else setZoomLevel((prev) => Math.max(prev - 0.15, 0.5));
