@@ -67,13 +67,13 @@ export const Lightbox = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Compute offset from center axis so side cards peek out symmetrically with compact card sizes
+  // Compute offset from center axis so side cards peek out symmetrically with ideal framing
   const getSideOffset = () => {
-    if (windowWidth >= 1440) return 340;
-    if (windowWidth >= 1280) return 310;
-    if (windowWidth >= 1024) return 270;
-    if (windowWidth >= 768) return 220;
-    return 150;
+    if (windowWidth >= 1536) return 480;
+    if (windowWidth >= 1280) return 420;
+    if (windowWidth >= 1024) return 350;
+    if (windowWidth >= 768) return 280;
+    return 180;
   };
   const sideOffset = getSideOffset();
 
@@ -87,163 +87,76 @@ export const Lightbox = ({
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
   const centerCardRef = useRef(null);
-  const leftCardRef = useRef(null);
-  const rightCardRef = useRef(null);
-  const isAnimating = useRef(false);
   const isFirstMount = useRef(true);
 
-  // Subtle entrance animation on first modal open
+  // Centralized slide navigation handler with direction tracking
+  const handleSlide = (dir) => {
+    if (dir > 0) {
+      if (hasNext) {
+        setDirection(1);
+        if (onNavigate && activeIndex < items.length - 1) {
+          onNavigate(activeIndex + 1);
+        } else if (onNext) {
+          onNext();
+        }
+      }
+    } else if (dir < 0) {
+      if (hasPrev) {
+        setDirection(-1);
+        if (onNavigate && activeIndex > 0) {
+          onNavigate(activeIndex - 1);
+        } else if (onPrev) {
+          onPrev();
+        }
+      }
+    }
+  };
+
+  const handleSlideRef = useRef(handleSlide);
   useEffect(() => {
-    if (centerCardRef.current && isFirstMount.current) {
+    handleSlideRef.current = handleSlide;
+  }, [handleSlide]);
+
+  // Cinematic GSAP 3D Slide-Flip Tween on Card Switch
+  useEffect(() => {
+    if (!centerCardRef.current) return;
+    if (isFirstMount.current) {
       isFirstMount.current = false;
       gsap.fromTo(
         centerCardRef.current,
         { scale: 0.94, opacity: 0, y: 15 },
         { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', force3D: true }
       );
+      return;
     }
-  }, []);
 
-  // Synchronized 3-Card GSAP 3D Slide & Flip Deck Engine
-  const handleSlide = (dir) => {
-    if (isAnimating.current) return;
-    if (dir > 0 && !hasNext) return;
-    if (dir < 0 && !hasPrev) return;
+    if (direction === 0) return;
 
-    isAnimating.current = true;
-    setDirection(dir);
-
-    const targetIndex = dir > 0 ? activeIndex + 1 : activeIndex - 1;
-    const duration = 0.78; // Slow, deliberate, clearly visible 3D flip motion
-    const ease = 'power2.inOut';
-
-    gsap.killTweensOf([centerCardRef.current, leftCardRef.current, rightCardRef.current]);
-
-    const tl = gsap.timeline({
-      onComplete: () => {
-        if (onNavigate) {
-          onNavigate(targetIndex);
-        } else if (dir > 0 && onNext) {
-          onNext();
-        } else if (dir < 0 && onPrev) {
-          onPrev();
-        }
-
-        // Clean up inline styles so new active card mounts cleanly in standard resting pose
-        gsap.set([centerCardRef.current, leftCardRef.current, rightCardRef.current], {
-          clearProps: 'transform,transformPerspective,transformOrigin',
-        });
-        isAnimating.current = false;
+    // Cinematic GSAP 3D Flip & Slide into Center Stage (Solid 100% Opaque, 44° Perspective Rotation)
+    gsap.fromTo(
+      centerCardRef.current,
+      {
+        x: direction > 0 ? (sideOffset * 0.95) : -(sideOffset * 0.95),
+        rotationY: direction > 0 ? -44 : 44,
+        rotationZ: direction > 0 ? 5 : -5,
+        scale: 0.88,
+        opacity: 1,
+        transformPerspective: 1200,
+        transformOrigin: 'center center',
       },
-    });
-
-    if (dir > 0) {
-      // NEXT: Center card flips to LEFT, right card flips into CENTER
-      if (centerCardRef.current) {
-        tl.to(
-          centerCardRef.current,
-          {
-            x: -sideOffset,
-            rotationY: 26,
-            rotationZ: -5,
-            scale: 0.86,
-            zIndex: 10,
-            duration,
-            ease,
-            force3D: true,
-            transformPerspective: 1200,
-          },
-          0
-        );
+      {
+        x: 0,
+        rotationY: 0,
+        rotationZ: 0,
+        scale: 1,
+        opacity: 1,
+        duration: 0.78,
+        ease: 'power2.out',
+        force3D: true,
+        clearProps: 'transformPerspective,transformOrigin',
       }
-      if (rightCardRef.current) {
-        tl.to(
-          rightCardRef.current,
-          {
-            x: 0,
-            rotationY: 0,
-            rotationZ: 0,
-            scale: 1,
-            zIndex: 30,
-            duration,
-            ease,
-            force3D: true,
-            transformPerspective: 1200,
-          },
-          0
-        );
-      }
-      if (leftCardRef.current) {
-        tl.to(
-          leftCardRef.current,
-          {
-            x: -(sideOffset + 180),
-            rotationY: 38,
-            scale: 0.72,
-            opacity: 0,
-            duration: duration * 0.85,
-            ease,
-            force3D: true,
-          },
-          0
-        );
-      }
-    } else {
-      // PREV: Center card flips to RIGHT, left card flips into CENTER
-      if (centerCardRef.current) {
-        tl.to(
-          centerCardRef.current,
-          {
-            x: sideOffset,
-            rotationY: -26,
-            rotationZ: 5,
-            scale: 0.86,
-            zIndex: 10,
-            duration,
-            ease,
-            force3D: true,
-            transformPerspective: 1200,
-          },
-          0
-        );
-      }
-      if (leftCardRef.current) {
-        tl.to(
-          leftCardRef.current,
-          {
-            x: 0,
-            rotationY: 0,
-            rotationZ: 0,
-            scale: 1,
-            zIndex: 30,
-            duration,
-            ease,
-            force3D: true,
-            transformPerspective: 1200,
-          },
-          0
-        );
-      }
-      if (rightCardRef.current) {
-        tl.to(
-          rightCardRef.current,
-          {
-            x: (sideOffset + 180),
-            rotationY: -38,
-            scale: 0.72,
-            opacity: 0,
-            duration: duration * 0.85,
-            ease,
-            force3D: true,
-          },
-          0
-        );
-      }
-    }
-  };
-
-  const handleSlideRef = useRef();
-  handleSlideRef.current = handleSlide;
+    );
+  }, [item?.id, direction, sideOffset]);
 
   // Helper renderer for stacked side preview cards (left & right 3D deck like Microsoft Edge)
   const renderSideCard = (subItem, type) => {
@@ -261,27 +174,59 @@ export const Lightbox = ({
     const isOfficeSub = ['ppt', 'pptx', 'xls', 'xlsx', 'doc', 'docx'].includes(sExt);
     const imgUrl = getDirectImageUrl(sData);
 
+    // Initial position logic so card physically slides & flips from center instead of appearing abruptly:
+    // When moving next (direction > 0), the left card was the center card, so it starts at center!
+    // When moving prev (direction < 0), the right card was the center card, so it starts at center!
+    const wasCenter = (isLeft && direction > 0) || (!isLeft && direction < 0);
+    const initialPose = wasCenter
+      ? { x: 0, scale: 1, rotateY: 0, rotateZ: 0, opacity: 1 }
+      : {
+          x: isLeft ? -(sideOffset + 140) : (sideOffset + 140),
+          scale: 0.82,
+          rotateY: isLeft ? 32 : -32,
+          rotateZ: isLeft ? -6 : 6,
+          opacity: 1,
+        };
+
     return (
       <div
-        ref={isLeft ? leftCardRef : rightCardRef}
         key={`side-wrap-${type}-${subItem.id}`}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center select-none cursor-pointer"
-        style={{
-          width: 0,
-          height: 0,
-          transformStyle: 'preserve-3d',
-          transform: `translate3d(${isLeft ? -sideOffset : sideOffset}px, 0px, 0px) rotateY(${isLeft ? 26 : -26}deg) rotateZ(${isLeft ? -5 : 5}deg) scale(0.86)`,
-          zIndex: 10,
-          opacity: zoomLevel > 1 ? 0 : 1,
-          transition: 'opacity 0.2s',
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          handleSlide(isLeft ? -1 : 1);
-        }}
-        title={`Klik untuk buka karya: ${subItem.title}`}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none flex items-center justify-center w-56 sm:w-64 md:w-72 lg:w-80 xl:w-[350px] 2xl:w-[380px] h-[56vh] sm:h-[60vh] max-h-[600px]"
+        style={{ transformStyle: 'preserve-3d' }}
       >
-        <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-[85vw] sm:w-[420px] md:w-[480px] lg:w-[540px] xl:w-[580px] max-w-[85vw] h-[58vh] sm:h-[62vh] max-h-[600px] flex flex-col group hover:border-purple-400/90 transition-all">
+        <motion.div
+          key={`side-${type}-${subItem.id}`}
+          initial={initialPose}
+          animate={{
+            x: isLeft ? -sideOffset : sideOffset,
+            y: 0,
+            scale: 0.88,
+            rotateZ: isLeft ? -5 : 5,
+            rotateY: isLeft ? 24 : -24,
+            opacity: zoomLevel > 1 ? 0 : 1,
+          }}
+          whileHover={{
+            x: isLeft ? -(sideOffset + 18) : (sideOffset + 18),
+            scale: 0.94,
+            rotateZ: isLeft ? -2 : 2,
+            rotateY: isLeft ? 10 : -10,
+            opacity: 1,
+            boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
+          }}
+          whileTap={{ scale: 0.86 }}
+          transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isLeft) {
+              handleSlide(-1);
+            } else {
+              handleSlide(1);
+            }
+          }}
+          className="w-full h-full cursor-pointer select-none pointer-events-auto flex flex-col rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] group hover:border-purple-400/90 transition-all"
+          style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
+          title={`Klik untuk buka karya: ${subItem.title}`}
+        >
           {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
           <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0 bg-[#12162A] border-b border-white/5">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -349,7 +294,7 @@ export const Lightbox = ({
             <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
             <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   };
