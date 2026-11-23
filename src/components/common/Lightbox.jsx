@@ -66,12 +66,13 @@ export const Lightbox = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Compute offset so side cards peek out prominently (~50-60%) while partially covered (~40-50%)
+  // Compute offset from center axis so side cards are 100% horizontally symmetrical
+  // peeking out prominently (~60-65%) like Microsoft Edge's card deck
   const getSideOffset = () => {
-    if (windowWidth >= 1440) return 330;
-    if (windowWidth >= 1280) return 300;
-    if (windowWidth >= 1024) return 260;
-    if (windowWidth >= 768) return 210;
+    if (windowWidth >= 1440) return 340;
+    if (windowWidth >= 1280) return 310;
+    if (windowWidth >= 1024) return 270;
+    if (windowWidth >= 768) return 220;
     return 150;
   };
   const sideOffset = getSideOffset();
@@ -85,49 +86,50 @@ export const Lightbox = ({
   const prevItem = items.length > 0 && activeIndex > 0 ? items[activeIndex - 1] : null;
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
-  // 3D Card Stack dealing animation (Slide from top to bottom like dealing playing cards)
+  // 3D Deck Swap Carousel Variants (matches Microsoft Edge video)
   const carouselVariants = {
     enter: (dir) => ({
-      y: -240, // Meluncur turun dari atas seperti membagi kartu
-      x: 0,
-      opacity: 0,
-      scale: 0.86,
-      rotateZ: dir > 0 ? 4 : -4,
-      rotateX: 12,
-      filter: 'blur(3px)',
+      x: dir > 0 ? (sideOffset + 60) : -(sideOffset + 60),
+      y: 0,
+      scale: 0.92,
+      rotateZ: dir > 0 ? 7 : -7,
+      rotateY: dir > 0 ? -10 : 10,
+      opacity: 0.7,
+      filter: 'blur(1px)',
     }),
     center: {
-      y: 0,
       x: 0,
-      opacity: 1,
+      y: 0,
       scale: 1,
       rotateZ: 0,
       rotateX: 0,
+      rotateY: 0,
+      opacity: 1,
       filter: 'blur(0px)',
       transition: {
-        y: { type: 'spring', stiffness: 280, damping: 24, mass: 0.85 },
-        scale: { type: 'spring', stiffness: 280, damping: 24, mass: 0.85 },
-        rotateZ: { type: 'spring', stiffness: 280, damping: 24, mass: 0.85 },
-        rotateX: { type: 'spring', stiffness: 280, damping: 24, mass: 0.85 },
-        opacity: { duration: 0.28, ease: 'easeOut' },
-        filter: { duration: 0.18 },
+        x: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        scale: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        rotateZ: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        rotateY: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        opacity: { duration: 0.22, ease: 'easeOut' },
+        filter: { duration: 0.15 },
       },
     },
     exit: (dir) => ({
-      y: 200, // Meluncur turun ke bawah tumpukan
-      x: 0,
-      opacity: 0,
-      scale: 0.84,
-      rotateZ: dir > 0 ? -5 : 5,
-      rotateX: -10,
-      filter: 'blur(3px)',
+      x: dir > 0 ? -(sideOffset + 60) : (sideOffset + 60),
+      y: 0,
+      scale: 0.92,
+      rotateZ: dir > 0 ? -7 : 7,
+      rotateY: dir > 0 ? 10 : -10,
+      opacity: 0.7,
+      filter: 'blur(1px)',
       transition: {
-        y: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
-        scale: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
-        rotateZ: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
-        rotateX: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
-        opacity: { duration: 0.22, ease: 'easeIn' },
-        filter: { duration: 0.18 },
+        x: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        scale: { type: 'spring', stiffness: 320, damping: 28, mass: 0.85 },
+        rotateZ: { type: 'spring', stiffness: 280, damping: 28, mass: 0.85 },
+        rotateY: { type: 'spring', stiffness: 280, damping: 28, mass: 0.85 },
+        opacity: { duration: 0.2, ease: 'easeIn' },
+        filter: { duration: 0.15 },
       },
     }),
   };
@@ -149,113 +151,119 @@ export const Lightbox = ({
     const imgUrl = getDirectImageUrl(sData);
 
     return (
-      <motion.div
-        key={`side-${type}-${subItem.id}`}
-        initial={{ opacity: 0, y: -80, scale: 0.7 }}
-        animate={{
-          x: isLeft ? -sideOffset : sideOffset,
-          y: '-50%',
-          scale: 0.9,
-          rotateZ: isLeft ? -8 : 8,
-          rotateY: isLeft ? 10 : -10,
-          opacity: zoomLevel > 1 ? 0.05 : 0.88,
-        }}
-        whileHover={{
-          x: isLeft ? -(sideOffset + 15) : (sideOffset + 15),
-          scale: 0.94,
-          rotateZ: isLeft ? -3 : 3,
-          rotateY: isLeft ? 4 : -4,
-          opacity: 1,
-          boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
-        }}
-        whileTap={{ scale: 0.84 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isLeft) {
-            setDirection(-1);
-            if (onNavigate) onNavigate(activeIndex - 1);
-            else if (onPrev) onPrev();
-          } else {
-            setDirection(1);
-            if (onNavigate) onNavigate(activeIndex + 1);
-            else if (onNext) onNext();
-          }
-        }}
-        className="absolute left-1/2 top-1/2 z-10 cursor-pointer flex flex-col items-center justify-center select-none pointer-events-auto"
-        style={{ transformStyle: 'preserve-3d' }}
-        title={`Klik untuk buka karya: ${subItem.title}`}
+      <div
+        key={`side-wrap-${type}-${subItem.id}`}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none flex items-center justify-center"
+        style={{ width: 0, height: 0, transformStyle: 'preserve-3d' }}
       >
-        <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-gradient-to-b from-[#141829]/95 via-[#0F1220]/95 to-[#0A0D18]/95 backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-48 sm:w-56 md:w-64 lg:w-72 xl:w-80 h-[56vh] sm:h-[62vh] max-h-[620px] flex flex-col group hover:border-purple-400/90 transition-all">
-          {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
-          <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              {isLeft ? <ChevronLeft size={13} /> : null}
-              <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
-              {!isLeft ? <ChevronRight size={13} /> : null}
-            </div>
-            <span className="text-[10px] font-bold text-slate-400 truncate max-w-[100px]">
-              {isLeft ? activeIndex : activeIndex + 2} / {totalItems}
-            </span>
-          </div>
-
-          {/* Media Preview Area */}
-          <div className="flex-1 w-full p-2.5 relative flex items-center justify-center overflow-hidden bg-black/40 rounded-2xl m-2.5 mt-0">
-            {isScratchSub ? (
-              <div className="w-full h-full rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
-                <Gamepad2 size={40} className="text-white mb-2 drop-shadow-md" />
-                <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
-                <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full">
-                  Game Scratch
-                </span>
+        <motion.div
+          key={`side-${type}-${subItem.id}`}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{
+            x: isLeft ? -sideOffset : sideOffset,
+            y: 0,
+            scale: 0.92,
+            rotateZ: isLeft ? -7 : 7,
+            rotateY: isLeft ? 10 : -10,
+            opacity: zoomLevel > 1 ? 0.05 : 0.86,
+          }}
+          whileHover={{
+            x: isLeft ? -(sideOffset + 18) : (sideOffset + 18),
+            scale: 0.96,
+            rotateZ: isLeft ? -3 : 3,
+            rotateY: isLeft ? 5 : -5,
+            opacity: 1,
+            boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
+          }}
+          whileTap={{ scale: 0.88 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isLeft) {
+              setDirection(-1);
+              if (onNavigate) onNavigate(activeIndex - 1);
+              else if (onPrev) onPrev();
+            } else {
+              setDirection(1);
+              if (onNavigate) onNavigate(activeIndex + 1);
+              else if (onNext) onNext();
+            }
+          }}
+          className="cursor-pointer select-none pointer-events-auto flex flex-col items-center justify-center shrink-0"
+          style={{ transformStyle: 'preserve-3d' }}
+          title={`Klik untuk buka karya: ${subItem.title}`}
+        >
+          <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-gradient-to-b from-[#141829]/95 via-[#0F1220]/95 to-[#0A0D18]/95 backdrop-blur-2xl shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-52 sm:w-60 md:w-68 lg:w-76 xl:w-80 h-[56vh] sm:h-[62vh] max-h-[620px] flex flex-col group hover:border-purple-400/90 transition-all">
+            {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
+            <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                {isLeft ? <ChevronLeft size={13} /> : null}
+                <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
+                {!isLeft ? <ChevronRight size={13} /> : null}
               </div>
-            ) : isPdfSub ? (
-              <div className="w-full h-full relative rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
+              <span className="text-[10px] font-bold text-slate-400 truncate max-w-[100px]">
+                {isLeft ? activeIndex : activeIndex + 2} / {totalItems}
+              </span>
+            </div>
+
+            {/* Media Preview Area */}
+            <div className="flex-1 w-full p-2.5 relative flex items-center justify-center overflow-hidden bg-black/40 rounded-2xl m-2.5 mt-0">
+              {isScratchSub ? (
+                <div className="w-full h-full rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
+                  <Gamepad2 size={40} className="text-white mb-2 drop-shadow-md" />
+                  <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
+                  <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full">
+                    Game Scratch
+                  </span>
+                </div>
+              ) : isPdfSub ? (
+                <div className="w-full h-full relative rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
+                  <img
+                    src={imgUrl}
+                    alt={subItem.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md">
+                    <FileText size={10} /> PDF
+                  </div>
+                </div>
+              ) : isOfficeSub ? (
+                <div className="w-full h-full rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center p-3 text-center text-white">
+                  <FileText size={40} className="text-white mb-2 drop-shadow-md" />
+                  <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
+                  <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
+                    {sExt || 'DOC'}
+                  </span>
+                </div>
+              ) : (
                 <img
                   src={imgUrl}
                   alt={subItem.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain drop-shadow-lg rounded-xl"
                   onError={(e) => {
-                    e.target.style.display = 'none';
+                    const dId = getDriveId(sData);
+                    if (dId && e.target.src.includes('thumbnail')) {
+                      e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w800`;
+                    } else {
+                      e.target.onerror = null;
+                      e.target.src = 'https://placehold.co/400x300/1e293b/94a3b8?text=Karya';
+                    }
                   }}
                 />
-                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md">
-                  <FileText size={10} /> PDF
-                </div>
-              </div>
-            ) : isOfficeSub ? (
-              <div className="w-full h-full rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center p-3 text-center text-white">
-                <FileText size={40} className="text-white mb-2 drop-shadow-md" />
-                <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
-                <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
-                  {sExt || 'DOC'}
-                </span>
-              </div>
-            ) : (
-              <img
-                src={imgUrl}
-                alt={subItem.title}
-                className="w-full h-full object-contain drop-shadow-lg rounded-xl"
-                onError={(e) => {
-                  const dId = getDriveId(sData);
-                  if (dId && e.target.src.includes('thumbnail')) {
-                    e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w800`;
-                  } else {
-                    e.target.onerror = null;
-                    e.target.src = 'https://placehold.co/400x300/1e293b/94a3b8?text=Karya';
-                  }
-                }}
-              />
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Bottom Card Title & Student Name */}
-          <div className="p-3 pt-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex flex-col items-center text-center shrink-0">
-            <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
-            <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
+            {/* Bottom Card Title & Student Name */}
+            <div className="p-3 pt-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex flex-col items-center text-center shrink-0">
+              <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
+              <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
+            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     );
   };
 
