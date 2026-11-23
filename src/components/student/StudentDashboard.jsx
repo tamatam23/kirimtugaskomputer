@@ -173,9 +173,11 @@ export const StudentDashboard = ({ setView }) => {
               <span>Siswa Komputer</span>
             </KineticLine>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex flex-wrap items-baseline gap-2 justify-center sm:justify-start">
-              <KineticText text="Hai," as="span" />
-              <span className="font-handwriting font-bold text-3xl sm:text-4xl text-amber-200 tracking-wide drop-shadow-[0_2px_8px_rgba(251,191,36,0.3)]">
+            <h1 className="font-handwriting font-bold text-3xl sm:text-4xl text-white flex flex-wrap items-baseline gap-2 justify-center sm:justify-start tracking-wide">
+              <span className="text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+                <KineticText text="Hai," as="span" />
+              </span>
+              <span className="text-amber-200 drop-shadow-[0_2px_8px_rgba(251,191,36,0.3)]">
                 <KineticText text={user.name} as="span" delay={0.15} />
               </span>
             </h1>
