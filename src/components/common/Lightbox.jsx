@@ -87,48 +87,163 @@ export const Lightbox = ({
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
   const centerCardRef = useRef(null);
+  const leftCardRef = useRef(null);
+  const rightCardRef = useRef(null);
+  const isAnimating = useRef(false);
   const isFirstMount = useRef(true);
 
-  // GSAP 3D Slide-Flip Tween on Card Switch
+  // Subtle entrance animation on first modal open
   useEffect(() => {
-    if (!centerCardRef.current) return;
-    if (isFirstMount.current) {
+    if (centerCardRef.current && isFirstMount.current) {
       isFirstMount.current = false;
       gsap.fromTo(
         centerCardRef.current,
-        { scale: 0.94, opacity: 1, y: 15 },
-        { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: 'power2.out', force3D: true }
+        { scale: 0.94, opacity: 0, y: 15 },
+        { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', force3D: true }
       );
-      return;
     }
+  }, []);
 
-    if (direction === 0) return;
+  // Synchronized 3-Card GSAP 3D Slide & Flip Deck Engine
+  const handleSlide = (dir) => {
+    if (isAnimating.current) return;
+    if (dir > 0 && !hasNext) return;
+    if (dir < 0 && !hasPrev) return;
 
-    // Cinematic GSAP 3D Flip & Slide into Center Stage (Solid 100% Opaque, Zero Transparency)
-    gsap.fromTo(
-      centerCardRef.current,
-      {
-        x: direction > 0 ? (sideOffset * 0.95) : -(sideOffset * 0.95),
-        rotationY: direction > 0 ? -24 : 24,
-        rotationZ: direction > 0 ? 5 : -5,
-        scale: 0.88,
-        opacity: 1,
-        transformPerspective: 1100,
-        transformOrigin: 'center center',
+    isAnimating.current = true;
+    setDirection(dir);
+
+    const targetIndex = dir > 0 ? activeIndex + 1 : activeIndex - 1;
+    const duration = 0.78; // Slow, deliberate, clearly visible 3D flip motion
+    const ease = 'power2.inOut';
+
+    gsap.killTweensOf([centerCardRef.current, leftCardRef.current, rightCardRef.current]);
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (onNavigate) {
+          onNavigate(targetIndex);
+        } else if (dir > 0 && onNext) {
+          onNext();
+        } else if (dir < 0 && onPrev) {
+          onPrev();
+        }
+
+        // Clean up inline styles so new active card mounts cleanly in standard resting pose
+        gsap.set([centerCardRef.current, leftCardRef.current, rightCardRef.current], {
+          clearProps: 'transform,transformPerspective,transformOrigin',
+        });
+        isAnimating.current = false;
       },
-      {
-        x: 0,
-        rotationY: 0,
-        rotationZ: 0,
-        scale: 1,
-        opacity: 1,
-        duration: 0.7,
-        ease: 'power2.out',
-        force3D: true,
-        clearProps: 'transformPerspective,transformOrigin',
+    });
+
+    if (dir > 0) {
+      // NEXT: Center card flips to LEFT, right card flips into CENTER
+      if (centerCardRef.current) {
+        tl.to(
+          centerCardRef.current,
+          {
+            x: -sideOffset,
+            rotationY: 26,
+            rotationZ: -5,
+            scale: 0.86,
+            zIndex: 10,
+            duration,
+            ease,
+            force3D: true,
+            transformPerspective: 1200,
+          },
+          0
+        );
       }
-    );
-  }, [item?.id, direction, sideOffset]);
+      if (rightCardRef.current) {
+        tl.to(
+          rightCardRef.current,
+          {
+            x: 0,
+            rotationY: 0,
+            rotationZ: 0,
+            scale: 1,
+            zIndex: 30,
+            duration,
+            ease,
+            force3D: true,
+            transformPerspective: 1200,
+          },
+          0
+        );
+      }
+      if (leftCardRef.current) {
+        tl.to(
+          leftCardRef.current,
+          {
+            x: -(sideOffset + 180),
+            rotationY: 38,
+            scale: 0.72,
+            opacity: 0,
+            duration: duration * 0.85,
+            ease,
+            force3D: true,
+          },
+          0
+        );
+      }
+    } else {
+      // PREV: Center card flips to RIGHT, left card flips into CENTER
+      if (centerCardRef.current) {
+        tl.to(
+          centerCardRef.current,
+          {
+            x: sideOffset,
+            rotationY: -26,
+            rotationZ: 5,
+            scale: 0.86,
+            zIndex: 10,
+            duration,
+            ease,
+            force3D: true,
+            transformPerspective: 1200,
+          },
+          0
+        );
+      }
+      if (leftCardRef.current) {
+        tl.to(
+          leftCardRef.current,
+          {
+            x: 0,
+            rotationY: 0,
+            rotationZ: 0,
+            scale: 1,
+            zIndex: 30,
+            duration,
+            ease,
+            force3D: true,
+            transformPerspective: 1200,
+          },
+          0
+        );
+      }
+      if (rightCardRef.current) {
+        tl.to(
+          rightCardRef.current,
+          {
+            x: (sideOffset + 180),
+            rotationY: -38,
+            scale: 0.72,
+            opacity: 0,
+            duration: duration * 0.85,
+            ease,
+            force3D: true,
+          },
+          0
+        );
+      }
+    }
+  };
+
+  const handleSlideRef = useRef();
+  handleSlideRef.current = handleSlide;
 
   // Helper renderer for stacked side preview cards (left & right 3D deck like Microsoft Edge)
   const renderSideCard = (subItem, type) => {
@@ -148,117 +263,93 @@ export const Lightbox = ({
 
     return (
       <div
+        ref={isLeft ? leftCardRef : rightCardRef}
         key={`side-wrap-${type}-${subItem.id}`}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none flex items-center justify-center"
-        style={{ width: 0, height: 0, transformStyle: 'preserve-3d' }}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center select-none cursor-pointer"
+        style={{
+          width: 0,
+          height: 0,
+          transformStyle: 'preserve-3d',
+          transform: `translate3d(${isLeft ? -sideOffset : sideOffset}px, 0px, 0px) rotateY(${isLeft ? 26 : -26}deg) rotateZ(${isLeft ? -5 : 5}deg) scale(0.86)`,
+          zIndex: 10,
+          opacity: zoomLevel > 1 ? 0 : 1,
+          transition: 'opacity 0.2s',
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSlide(isLeft ? -1 : 1);
+        }}
+        title={`Klik untuk buka karya: ${subItem.title}`}
       >
-        <motion.div
-          key={`side-${type}-${subItem.id}`}
-          initial={{ opacity: 1, scale: 0.82 }}
-          animate={{
-            x: isLeft ? -sideOffset : sideOffset,
-            y: 0,
-            scale: 0.88,
-            rotateZ: isLeft ? -7 : 7,
-            rotateY: isLeft ? 15 : -15,
-            opacity: zoomLevel > 1 ? 0 : 1,
-          }}
-          whileHover={{
-            x: isLeft ? -(sideOffset + 18) : (sideOffset + 18),
-            scale: 0.94,
-            rotateZ: isLeft ? -3 : 3,
-            rotateY: isLeft ? 5 : -5,
-            opacity: 1,
-            boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
-          }}
-          whileTap={{ scale: 0.88 }}
-          transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isLeft) {
-              setDirection(-1);
-              if (onNavigate) onNavigate(activeIndex - 1);
-              else if (onPrev) onPrev();
-            } else {
-              setDirection(1);
-              if (onNavigate) onNavigate(activeIndex + 1);
-              else if (onNext) onNext();
-            }
-          }}
-          className="cursor-pointer select-none pointer-events-auto flex flex-col items-center justify-center shrink-0"
-          style={{ transformStyle: 'preserve-3d' }}
-          title={`Klik untuk buka karya: ${subItem.title}`}
-        >
-          <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-44 sm:w-52 md:w-60 lg:w-[260px] xl:w-[290px] h-[52vh] sm:h-[56vh] max-h-[540px] flex flex-col group hover:border-purple-400/90 transition-all">
-            {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
-            <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0 bg-[#12162A] border-b border-white/5">
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                {isLeft ? <ChevronLeft size={13} /> : null}
-                <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
-                {!isLeft ? <ChevronRight size={13} /> : null}
-              </div>
-              <span className="text-[10px] font-bold text-slate-400 truncate max-w-[100px]">
-                {isLeft ? activeIndex : activeIndex + 2} / {totalItems}
-              </span>
+        <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-[85vw] sm:w-[420px] md:w-[480px] lg:w-[540px] xl:w-[580px] max-w-[85vw] h-[58vh] sm:h-[62vh] max-h-[600px] flex flex-col group hover:border-purple-400/90 transition-all">
+          {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
+          <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0 bg-[#12162A] border-b border-white/5">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              {isLeft ? <ChevronLeft size={13} /> : null}
+              <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
+              {!isLeft ? <ChevronRight size={13} /> : null}
             </div>
+            <span className="text-[10px] font-bold text-slate-400 truncate max-w-[100px]">
+              {isLeft ? activeIndex : activeIndex + 2} / {totalItems}
+            </span>
+          </div>
 
-            {/* Media Preview Area */}
-            <div className="flex-1 w-full p-2.5 relative flex items-center justify-center overflow-hidden bg-[#070913] rounded-2xl m-2.5 mt-2.5">
-              {isScratchSub ? (
-                <div className="w-full h-full rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
-                  <Gamepad2 size={40} className="text-white mb-2 drop-shadow-md" />
-                  <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
-                  <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full">
-                    Game Scratch
-                  </span>
-                </div>
-              ) : isPdfSub ? (
-                <div className="w-full h-full relative rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
-                  <img
-                    src={imgUrl}
-                    alt={subItem.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md">
-                    <FileText size={10} /> PDF
-                  </div>
-                </div>
-              ) : isOfficeSub ? (
-                <div className="w-full h-full rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center p-3 text-center text-white">
-                  <FileText size={40} className="text-white mb-2 drop-shadow-md" />
-                  <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
-                  <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
-                    {sExt || 'DOC'}
-                  </span>
-                </div>
-              ) : (
+          {/* Media Preview Area */}
+          <div className="flex-1 w-full p-2.5 relative flex items-center justify-center overflow-hidden bg-[#070913] rounded-2xl m-2.5 mt-2.5">
+            {isScratchSub ? (
+              <div className="w-full h-full rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
+                <Gamepad2 size={40} className="text-white mb-2 drop-shadow-md" />
+                <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
+                <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full">
+                  Game Scratch
+                </span>
+              </div>
+            ) : isPdfSub ? (
+              <div className="w-full h-full relative rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
                 <img
                   src={imgUrl}
                   alt={subItem.title}
-                  className="w-full h-full object-contain drop-shadow-lg rounded-xl"
+                  className="w-full h-full object-cover"
                   onError={(e) => {
-                    const dId = getDriveId(sData);
-                    if (dId && e.target.src.includes('thumbnail')) {
-                      e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w800`;
-                    } else {
-                      e.target.onerror = null;
-                      e.target.src = 'https://placehold.co/400x300/1e293b/94a3b8?text=Karya';
-                    }
+                    e.target.style.display = 'none';
                   }}
                 />
-              )}
-            </div>
-
-            {/* Bottom Card Title & Student Name */}
-            <div className="p-3 pt-2 bg-[#0A0D1A] border-t border-white/5 flex flex-col items-center text-center shrink-0">
-              <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
-              <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
-            </div>
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md">
+                  <FileText size={10} /> PDF
+                </div>
+              </div>
+            ) : isOfficeSub ? (
+              <div className="w-full h-full rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center p-3 text-center text-white">
+                <FileText size={40} className="text-white mb-2 drop-shadow-md" />
+                <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
+                <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
+                  {sExt || 'DOC'}
+                </span>
+              </div>
+            ) : (
+              <img
+                src={imgUrl}
+                alt={subItem.title}
+                className="w-full h-full object-contain drop-shadow-lg rounded-xl"
+                onError={(e) => {
+                  const dId = getDriveId(sData);
+                  if (dId && e.target.src.includes('thumbnail')) {
+                    e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w800`;
+                  } else {
+                    e.target.onerror = null;
+                    e.target.src = 'https://placehold.co/400x300/1e293b/94a3b8?text=Karya';
+                  }
+                }}
+              />
+            )}
           </div>
-        </motion.div>
+
+          {/* Bottom Card Title & Student Name */}
+          <div className="p-3 pt-2 bg-[#0A0D1A] border-t border-white/5 flex flex-col items-center text-center shrink-0">
+            <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
+            <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
+          </div>
+        </div>
       </div>
     );
   };
@@ -280,15 +371,9 @@ export const Lightbox = ({
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'ArrowLeft') {
-        if (hasPrev && onPrev) {
-          setDirection(-1);
-          onPrev();
-        }
+        handleSlideRef.current?.(-1);
       } else if (e.key === 'ArrowRight') {
-        if (hasNext && onNext) {
-          setDirection(1);
-          onNext();
-        }
+        handleSlideRef.current?.(1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -396,12 +481,10 @@ export const Lightbox = ({
           const diffX = touchStartX - e.changedTouches[0].clientX;
           const diffY = touchStartY - e.changedTouches[0].clientY;
           if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-            if (diffX > 0 && hasNext && onNext) {
-              setDirection(1);
-              onNext();
-            } else if (diffX < 0 && hasPrev && onPrev) {
-              setDirection(-1);
-              onPrev();
+            if (diffX > 0) {
+              handleSlide(1);
+            } else if (diffX < 0) {
+              handleSlide(-1);
             }
           }
           setTouchStartX(null);
@@ -409,16 +492,14 @@ export const Lightbox = ({
         }}
       >
         {/* Floating Left Arrow (Previous Project) */}
-        {hasPrev && onPrev && (
+        {hasPrev && (
           <motion.button
             whileHover={{ scale: 1.15, x: -3, boxShadow: '0 0 25px rgba(168, 85, 247, 0.65)' }}
             whileTap={{ scale: 0.9 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={(e) => {
               e.stopPropagation();
-              setDirection(-1);
-              if (onNavigate && activeIndex > 0) onNavigate(activeIndex - 1);
-              else onPrev();
+              handleSlide(-1);
             }}
             className="fixed left-2 sm:left-4 md:left-6 top-1/2 -translate-y-1/2 z-[10000000] p-3 sm:p-4 rounded-full bg-slate-900/90 hover:bg-gradient-to-r hover:from-purple-600 hover:to-indigo-600 text-white backdrop-blur-2xl border border-white/25 shadow-[0_10px_35px_rgba(0,0,0,0.7)] transition-all cursor-pointer group"
             title="Project Sebelumnya (Panah Kiri ←)"
@@ -428,16 +509,14 @@ export const Lightbox = ({
         )}
 
         {/* Floating Right Arrow (Next Project) */}
-        {hasNext && onNext && (
+        {hasNext && (
           <motion.button
             whileHover={{ scale: 1.15, x: 3, boxShadow: '0 0 25px rgba(168, 85, 247, 0.65)' }}
             whileTap={{ scale: 0.9 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={(e) => {
               e.stopPropagation();
-              setDirection(1);
-              if (onNavigate && activeIndex < totalItems - 1) onNavigate(activeIndex + 1);
-              else onNext();
+              handleSlide(1);
             }}
             className="fixed right-2 sm:right-4 md:right-6 top-1/2 -translate-y-1/2 z-[10000000] p-3 sm:p-4 rounded-full bg-slate-900/90 hover:bg-gradient-to-r hover:from-indigo-600 hover:to-purple-600 text-white backdrop-blur-2xl border border-white/25 shadow-[0_10px_35px_rgba(0,0,0,0.7)] transition-all cursor-pointer group"
             title="Project Berikutnya (Panah Kanan →)"
