@@ -104,15 +104,15 @@ export const Lightbox = ({
 
     if (direction === 0) return;
 
-    // Cinematic GSAP 3D Flip & Slide into Center Stage (Ultra-Smooth, Zero Bounce, Zero Ghosting)
+    // Cinematic GSAP 3D Flip & Slide into Center Stage (Smooth, Elegant, Clear 3D Flip Perception)
     gsap.fromTo(
       centerCardRef.current,
       {
-        x: direction > 0 ? (sideOffset * 0.92) : -(sideOffset * 0.92),
-        rotationY: direction > 0 ? -18 : 18,
-        rotationZ: direction > 0 ? 7 : -7,
-        scale: 0.91,
-        opacity: 0.65,
+        x: direction > 0 ? (sideOffset * 0.96) : -(sideOffset * 0.96),
+        rotationY: direction > 0 ? -22 : 22,
+        rotationZ: direction > 0 ? 6 : -6,
+        scale: 0.88,
+        opacity: 0.55,
         transformPerspective: 1200,
         transformOrigin: 'center center',
       },
@@ -122,8 +122,8 @@ export const Lightbox = ({
         rotationZ: 0,
         scale: 1,
         opacity: 1,
-        duration: 0.52,
-        ease: 'power3.out',
+        duration: 0.78,
+        ease: 'power2.out',
         force3D: true,
         clearProps: 'transformPerspective,transformOrigin',
       }
@@ -172,7 +172,7 @@ export const Lightbox = ({
             boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
           }}
           whileTap={{ scale: 0.88 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
           onClick={(e) => {
             e.stopPropagation();
             if (isLeft) {
