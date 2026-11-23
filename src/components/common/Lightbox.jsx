@@ -86,15 +86,15 @@ export const Lightbox = ({
   const prevItem = items.length > 0 && activeIndex > 0 ? items[activeIndex - 1] : null;
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
-  // 3D Deck Swap Carousel Variants (Smooth 3D slide-flip motion, no bounce, elegant duration)
+  // 3D Deck Swap Carousel Variants (Clean 3D slide-flip into center stage with ZERO ghosting)
   const carouselVariants = {
     enter: (dir) => ({
-      x: dir > 0 ? (sideOffset + 50) : -(sideOffset + 50),
+      x: dir > 0 ? sideOffset : -sideOffset,
       y: 0,
-      scale: 0.9,
-      rotateZ: dir > 0 ? 8 : -8,
-      rotateY: dir > 0 ? -18 : 18,
-      opacity: 0.75,
+      scale: 0.92,
+      rotateZ: dir > 0 ? 7 : -7,
+      rotateY: dir > 0 ? -16 : 16,
+      opacity: 0.7,
     }),
     center: {
       x: 0,
@@ -105,26 +105,23 @@ export const Lightbox = ({
       rotateY: 0,
       opacity: 1,
       transition: {
-        x: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
-        scale: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
-        rotateZ: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
-        rotateY: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
-        opacity: { duration: 0.38, ease: 'easeOut' },
+        x: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
+        scale: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
+        rotateZ: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
+        rotateY: { duration: 0.48, ease: [0.16, 1, 0.3, 1] },
+        opacity: { duration: 0.28, ease: 'easeOut' },
       },
     },
     exit: (dir) => ({
-      x: dir > 0 ? -(sideOffset + 50) : (sideOffset + 50),
+      x: dir > 0 ? -45 : 45,
       y: 0,
-      scale: 0.9,
-      rotateZ: dir > 0 ? -8 : 8,
-      rotateY: dir > 0 ? 18 : -18,
+      scale: 0.96,
+      rotateZ: dir > 0 ? -2 : 2,
+      rotateY: dir > 0 ? 4 : -4,
       opacity: 0,
       transition: {
-        x: { duration: 0.52, ease: [0.16, 1, 0.3, 1] },
-        scale: { duration: 0.52, ease: [0.16, 1, 0.3, 1] },
-        rotateZ: { duration: 0.52, ease: [0.16, 1, 0.3, 1] },
-        rotateY: { duration: 0.52, ease: [0.16, 1, 0.3, 1] },
-        opacity: { duration: 0.45, ease: 'easeIn' },
+        duration: 0.16,
+        ease: 'easeOut',
       },
     }),
   };
@@ -171,7 +168,7 @@ export const Lightbox = ({
             boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
           }}
           whileTap={{ scale: 0.88 }}
-          transition={{ duration: 0.52, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           onClick={(e) => {
             e.stopPropagation();
             if (isLeft) {
