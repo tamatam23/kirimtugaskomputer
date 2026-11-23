@@ -64,45 +64,56 @@ export const Lightbox = ({
   const prevItem = items.length > 0 && activeIndex > 0 ? items[activeIndex - 1] : null;
   const nextItem = items.length > 0 && activeIndex < items.length - 1 ? items[activeIndex + 1] : null;
 
+  // 3D Card Stack dealing animation (Slide from top to bottom like dealing playing cards)
   const carouselVariants = {
     enter: (dir) => ({
-      x: dir > 0 ? 280 : dir < 0 ? -280 : 0,
-      opacity: 0.25,
-      scale: 0.76,
-      rotateY: dir > 0 ? 20 : dir < 0 ? -20 : 0,
+      y: -240, // Meluncur turun dari atas seperti membagi kartu
+      x: dir > 0 ? 50 : dir < 0 ? -50 : 0,
+      opacity: 0,
+      scale: 0.84,
+      rotateZ: dir > 0 ? 5 : dir < 0 ? -5 : 0,
+      rotateX: 14,
       filter: 'blur(4px)',
     }),
     center: {
+      y: 0,
       x: 0,
       opacity: 1,
       scale: 1,
-      rotateY: 0,
+      rotateZ: 0,
+      rotateX: 0,
       filter: 'blur(0px)',
       transition: {
-        x: { type: 'spring', stiffness: 320, damping: 30, mass: 0.85 },
-        opacity: { duration: 0.26, ease: 'easeOut' },
-        scale: { type: 'spring', stiffness: 320, damping: 30, mass: 0.85 },
-        rotateY: { type: 'spring', stiffness: 320, damping: 30, mass: 0.85 },
+        y: { type: 'spring', stiffness: 260, damping: 24, mass: 0.85 },
+        x: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
+        scale: { type: 'spring', stiffness: 260, damping: 24, mass: 0.85 },
+        rotateZ: { type: 'spring', stiffness: 260, damping: 24, mass: 0.85 },
+        rotateX: { type: 'spring', stiffness: 260, damping: 24, mass: 0.85 },
+        opacity: { duration: 0.28, ease: 'easeOut' },
         filter: { duration: 0.2 },
       },
     },
     exit: (dir) => ({
-      x: dir > 0 ? -280 : dir < 0 ? 280 : 0,
-      opacity: 0.25,
-      scale: 0.76,
-      rotateY: dir > 0 ? -20 : dir < 0 ? 20 : 0,
+      y: 200, // Meluncur turun ke bawah tumpukan
+      x: dir > 0 ? -60 : dir < 0 ? 60 : 0,
+      opacity: 0,
+      scale: 0.82,
+      rotateZ: dir > 0 ? -6 : dir < 0 ? 6 : 0,
+      rotateX: -10,
       filter: 'blur(4px)',
       transition: {
-        x: { type: 'spring', stiffness: 320, damping: 30, mass: 0.85 },
+        y: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
+        x: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
+        scale: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
+        rotateZ: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
+        rotateX: { type: 'spring', stiffness: 280, damping: 26, mass: 0.85 },
         opacity: { duration: 0.22, ease: 'easeIn' },
-        scale: { type: 'spring', stiffness: 320, damping: 30, mass: 0.85 },
-        rotateY: { type: 'spring', stiffness: 320, damping: 30, mass: 0.85 },
-        filter: { duration: 0.2 },
+        filter: { duration: 0.18 },
       },
     }),
   };
 
-  // Helper renderer for side preview cards (left & right medium-sized preview)
+  // Helper renderer for stacked side preview cards (left & right 3D deck like Microsoft Edge)
   const renderSideCard = (subItem, type) => {
     if (!subItem) return null;
     const isLeft = type === 'prev';
@@ -121,20 +132,21 @@ export const Lightbox = ({
     return (
       <motion.div
         key={`side-${type}-${subItem.id}`}
-        initial={{ opacity: 0, x: isLeft ? -100 : 100, scale: 0.6 }}
+        initial={{ opacity: 0, y: -80, scale: 0.7 }}
         animate={{
-          opacity: zoomLevel > 1 ? 0.08 : 0.65,
-          x: 0,
-          scale: 0.74,
-          rotateY: isLeft ? 20 : -20,
+          opacity: zoomLevel > 1 ? 0.05 : 0.82,
+          scale: 0.82,
+          rotateZ: isLeft ? -5 : 5,
+          rotateY: isLeft ? 14 : -14,
         }}
         whileHover={{
-          opacity: 0.98,
-          scale: 0.82,
-          rotateY: isLeft ? 8 : -8,
-          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.75)',
+          opacity: 1,
+          scale: 0.88,
+          rotateZ: isLeft ? -1 : 1,
+          rotateY: isLeft ? 5 : -5,
+          boxShadow: '0 25px 60px rgba(168, 85, 247, 0.45)',
         }}
-        whileTap={{ scale: 0.72 }}
+        whileTap={{ scale: 0.78 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28 }}
         onClick={(e) => {
           e.stopPropagation();
@@ -150,71 +162,79 @@ export const Lightbox = ({
         }}
         className={`flex absolute ${
           isLeft
-            ? 'left-2 sm:left-6 md:left-10 lg:left-16 xl:left-24'
-            : 'right-2 sm:right-6 md:right-10 lg:right-16 xl:right-24'
-        } top-1/2 -translate-y-1/2 z-20 cursor-pointer flex-col items-center justify-center pointer-events-auto select-none`}
+            ? 'left-1/2 -translate-x-[135%] sm:-translate-x-[120%] md:-translate-x-[110%] lg:-translate-x-[105%]'
+            : 'left-1/2 translate-x-[35%] sm:translate-x-[20%] md:translate-x-[10%] lg:translate-x-[5%]'
+        } top-1/2 -translate-y-1/2 z-10 cursor-pointer flex-col items-center justify-center pointer-events-auto select-none`}
         style={{ transformStyle: 'preserve-3d' }}
-        title={`Klik untuk lihat: ${subItem.title}`}
+        title={`Klik untuk buka karya: ${subItem.title}`}
       >
-        <div className="relative rounded-3xl overflow-hidden border-2 border-white/25 bg-slate-900/90 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7)] w-36 sm:w-48 md:w-56 lg:w-64 xl:w-72 2xl:w-80 aspect-[3/4] max-h-[55vh] flex items-center justify-center p-2 group hover:border-purple-400/90 transition-all">
+        <div className="relative rounded-[2rem] overflow-hidden border-2 border-white/20 bg-gradient-to-b from-[#141829]/95 via-[#0F1220]/95 to-[#0A0D18]/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] w-44 sm:w-56 md:w-64 lg:w-72 xl:w-80 h-[52vh] sm:h-[60vh] max-h-[600px] flex flex-col group hover:border-purple-400/90 transition-all">
           {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
-          <div className="absolute top-2.5 z-30 flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[10px] font-extrabold shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
-            {isLeft ? <ChevronLeft size={12} /> : null}
-            <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
-            {!isLeft ? <ChevronRight size={12} /> : null}
+          <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              {isLeft ? <ChevronLeft size={13} /> : null}
+              <span>{isLeft ? 'Sebelumnya' : 'Berikutnya'}</span>
+              {!isLeft ? <ChevronRight size={13} /> : null}
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 truncate max-w-[100px]">
+              {isLeft ? activeIndex : activeIndex + 2} / {totalItems}
+            </span>
           </div>
 
-          {isScratchSub ? (
-            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
-              <Gamepad2 size={36} className="text-white mb-2 drop-shadow-md" />
-              <p className="text-xs font-black line-clamp-1">{subItem.title}</p>
-              <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full">
-                Game Scratch
-              </span>
-            </div>
-          ) : isPdfSub ? (
-            <div className="w-full h-full relative rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center">
+          {/* Media Preview Area */}
+          <div className="flex-1 w-full p-2 relative flex items-center justify-center overflow-hidden bg-black/35 rounded-2xl m-2.5 mt-0">
+            {isScratchSub ? (
+              <div className="w-full h-full rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-3 text-center text-white">
+                <Gamepad2 size={40} className="text-white mb-2 drop-shadow-md" />
+                <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
+                <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full">
+                  Game Scratch
+                </span>
+              </div>
+            ) : isPdfSub ? (
+              <div className="w-full h-full relative rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center">
+                <img
+                  src={imgUrl}
+                  alt={subItem.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md">
+                  <FileText size={10} /> PDF
+                </div>
+              </div>
+            ) : isOfficeSub ? (
+              <div className="w-full h-full rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center p-3 text-center text-white">
+                <FileText size={40} className="text-white mb-2 drop-shadow-md" />
+                <span className="text-xs font-black line-clamp-1">{subItem.title}</span>
+                <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
+                  {sExt || 'DOC'}
+                </span>
+              </div>
+            ) : (
               <img
                 src={imgUrl}
                 alt={subItem.title}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain drop-shadow-lg rounded-xl"
                 onError={(e) => {
-                  e.target.style.display = 'none';
+                  const dId = getDriveId(sData);
+                  if (dId && e.target.src.includes('thumbnail')) {
+                    e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w800`;
+                  } else {
+                    e.target.onerror = null;
+                    e.target.src = 'https://placehold.co/400x300/1e293b/94a3b8?text=Karya';
+                  }
                 }}
               />
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md">
-                <FileText size={10} /> PDF
-              </div>
-            </div>
-          ) : isOfficeSub ? (
-            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex flex-col items-center justify-center p-3 text-center text-white">
-              <FileText size={36} className="text-white mb-2 drop-shadow-md" />
-              <p className="text-xs font-black line-clamp-1">{subItem.title}</p>
-              <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
-                {sExt || 'DOC'}
-              </span>
-            </div>
-          ) : (
-            <img
-              src={imgUrl}
-              alt={subItem.title}
-              className="w-full h-full object-contain rounded-2xl"
-              onError={(e) => {
-                const dId = getDriveId(sData);
-                if (dId && e.target.src.includes('thumbnail')) {
-                  e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w800`;
-                } else {
-                  e.target.onerror = null;
-                  e.target.src = 'https://placehold.co/400x300/1e293b/94a3b8?text=Karya';
-                }
-              }}
-            />
-          )}
+            )}
+          </div>
 
-          {/* Bottom Label Overlay */}
-          <div className="absolute inset-x-0 bottom-0 p-3 pt-8 bg-gradient-to-t from-slate-950 via-slate-950/85 to-transparent flex flex-col items-center text-center">
-            <p className="text-white text-xs font-black truncate w-full">{subItem.title}</p>
-            <p className="text-slate-400 text-[10px] truncate w-full">{studentName}</p>
+          {/* Bottom Card Title & Student Name */}
+          <div className="p-3 pt-2 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent flex flex-col items-center text-center shrink-0">
+            <p className="text-white text-xs sm:text-sm font-black truncate w-full">{subItem.title}</p>
+            <p className="text-amber-200 text-xs font-handwriting font-bold truncate w-full">{studentName}</p>
           </div>
         </div>
       </motion.div>
@@ -506,7 +526,7 @@ export const Lightbox = ({
             >
               {isGameScratch ? (
                 /* 1. Interactive Scratch / TurboWarp Player Frame */
-                <div className="w-full max-w-[92vw] md:max-w-[54vw] lg:max-w-[48vw] xl:max-w-[42vw] aspect-[4/3] sm:aspect-video max-h-[76vh] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-slate-700">
+                <div className="w-full max-w-[92vw] md:max-w-[54vw] lg:max-w-[48vw] xl:max-w-[42vw] aspect-[4/3] sm:aspect-video max-h-[72vh] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
                   {/* Game Player Bar Header */}
                   <div className="bg-slate-900/95 text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
@@ -612,7 +632,7 @@ export const Lightbox = ({
                 </div>
               ) : isPdf ? (
                 /* 2. Fullscreen Responsive PDF Viewer */
-                <div className="w-full max-w-[92vw] md:max-w-[54vw] lg:max-w-[48vw] xl:max-w-[42vw] h-[74vh] sm:h-[78vh] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-slate-700">
+                <div className="w-full max-w-[92vw] md:max-w-[54vw] lg:max-w-[48vw] xl:max-w-[42vw] h-[68vh] sm:h-[72vh] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
                   {/* PDF Header Bar */}
                   <div className="bg-slate-900/95 text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
@@ -661,7 +681,7 @@ export const Lightbox = ({
                 </div>
               ) : isOffice ? (
                 /* 3. Office Document Viewer (Word, Excel, PowerPoint) */
-                <div className="w-full max-w-[92vw] md:max-w-[54vw] lg:max-w-[48vw] xl:max-w-[42vw] h-[74vh] sm:h-[78vh] bg-slate-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-slate-700">
+                <div className="w-full max-w-[92vw] md:max-w-[54vw] lg:max-w-[48vw] xl:max-w-[42vw] h-[68vh] sm:h-[72vh] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col">
                   <div className="bg-slate-900/95 text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
                       <FileText size={18} className="text-blue-400 shrink-0" />
@@ -716,51 +736,77 @@ export const Lightbox = ({
                   </div>
                 </div>
               ) : (
-                /* 4. Interactive Image Viewer with Pan & Zoom */
-                <div
-                  className="max-w-[92vw] md:max-w-[50vw] lg:max-w-[42vw] xl:max-w-[38vw] max-h-[74vh] flex items-center justify-center overflow-hidden"
-                  onWheel={(e) => {
-                    if (e.deltaY < 0) setZoomLevel((prev) => Math.min(prev + 0.15, 5));
-                    else setZoomLevel((prev) => Math.max(prev - 0.15, 0.5));
-                  }}
-                  onMouseDown={(e) => {
-                    if (zoomLevel > 1) {
-                      e.preventDefault();
-                      setIsDragging(true);
-                      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-                    }
-                  }}
-                  onMouseMove={(e) => {
-                    if (isDragging && zoomLevel > 1) {
-                      e.preventDefault();
-                      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
-                    }
-                  }}
-                  onMouseUp={() => setIsDragging(false)}
-                  onMouseLeave={() => setIsDragging(false)}
-                >
-                  <img
-                    src={imageUrl}
-                    alt={item.title}
-                    draggable="false"
-                    referrerPolicy="no-referrer"
-                    className="max-w-full max-h-[72vh] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.65)] rounded-2xl select-none"
-                    style={{
-                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel})`,
-                      transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                /* 4. Interactive Image Viewer with Pan & Zoom inside 3D Card Deck */
+                <div className="w-[92vw] sm:w-[540px] md:w-[620px] lg:w-[680px] xl:w-[740px] max-w-[94vw] h-[64vh] sm:h-[68vh] max-h-[700px] rounded-[2.25rem] bg-gradient-to-b from-[#141829]/98 via-[#0F1220]/95 to-[#0A0D18]/98 border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.9)] backdrop-blur-2xl flex flex-col overflow-hidden">
+                  {/* Card Header Bar */}
+                  <div className="px-5 py-3 sm:py-3.5 border-b border-white/10 bg-white/[0.03] flex items-center justify-between gap-3 shrink-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-[11px] font-black shrink-0">
+                        🎨 Karya Gambar
+                      </span>
+                      <strong className="text-white text-xs sm:text-sm font-extrabold truncate">
+                        {item.title}
+                      </strong>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-right shrink-0">
+                      <span className="text-amber-200 text-xs sm:text-sm font-bold font-handwriting">
+                        {item.student?.name || 'Siswa'}
+                      </span>
+                      {totalItems > 1 && currentIndex !== undefined && (
+                        <span className="text-slate-400 text-[10px] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+                          {currentIndex + 1} / {totalItems}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card Media Stage */}
+                  <div
+                    className="flex-1 w-full relative flex items-center justify-center p-3 sm:p-5 bg-black/40 overflow-hidden cursor-grab active:cursor-grabbing"
+                    onWheel={(e) => {
+                      if (e.deltaY < 0) setZoomLevel((prev) => Math.min(prev + 0.15, 5));
+                      else setZoomLevel((prev) => Math.max(prev - 0.15, 0.5));
                     }}
-                    onError={(e) => {
-                      const dId = getDriveId(item.fileData);
-                      if (dId && e.target.src.includes('thumbnail')) {
-                        e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w1200`;
-                      } else if (dId && e.target.src.includes('lh3.googleusercontent.com')) {
-                        e.target.src = `https://lh3.googleusercontent.com/d/${dId}=s1200`;
-                      } else {
-                        e.target.onerror = null;
-                        e.target.src = 'https://placehold.co/800x600/1e293b/94a3b8?text=Karya+Siswa';
+                    onMouseDown={(e) => {
+                      if (zoomLevel > 1) {
+                        e.preventDefault();
+                        setIsDragging(true);
+                        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
                       }
                     }}
-                  />
+                    onMouseMove={(e) => {
+                      if (isDragging && zoomLevel > 1) {
+                        e.preventDefault();
+                        setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+                      }
+                    }}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={item.title}
+                      draggable="false"
+                      referrerPolicy="no-referrer"
+                      className="max-w-full max-h-[50vh] sm:max-h-[54vh] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none"
+                      style={{
+                        transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel})`,
+                        transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+                      }}
+                      onError={(e) => {
+                        const dId = getDriveId(item.fileData);
+                        if (dId && e.target.src.includes('thumbnail')) {
+                          e.target.src = `https://lh3.googleusercontent.com/d/${dId}=w1200`;
+                        } else if (dId && e.target.src.includes('lh3.googleusercontent.com')) {
+                          e.target.src = `https://lh3.googleusercontent.com/d/${dId}=s1200`;
+                        } else {
+                          e.target.onerror = null;
+                          e.target.src = 'https://placehold.co/800x600/1e293b/94a3b8?text=Karya+Siswa';
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </motion.div>
