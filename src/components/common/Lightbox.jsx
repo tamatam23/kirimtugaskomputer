@@ -67,14 +67,13 @@ export const Lightbox = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Compute offset from center axis so side cards are 100% horizontally symmetrical
-  // peeking out prominently (~60-65%) like Microsoft Edge's card deck
+  // Compute offset from center axis so side cards peek out symmetrically with enlarged card sizes
   const getSideOffset = () => {
-    if (windowWidth >= 1440) return 340;
-    if (windowWidth >= 1280) return 310;
-    if (windowWidth >= 1024) return 270;
-    if (windowWidth >= 768) return 220;
-    return 150;
+    if (windowWidth >= 1536) return 540;
+    if (windowWidth >= 1280) return 460;
+    if (windowWidth >= 1024) return 380;
+    if (windowWidth >= 768) return 300;
+    return 190;
   };
   const sideOffset = getSideOffset();
 
@@ -190,7 +189,7 @@ export const Lightbox = ({
           style={{ transformStyle: 'preserve-3d' }}
           title={`Klik untuk buka karya: ${subItem.title}`}
         >
-          <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-52 sm:w-60 md:w-68 lg:w-76 xl:w-80 h-[56vh] sm:h-[62vh] max-h-[620px] flex flex-col group hover:border-purple-400/90 transition-all">
+          <div className="relative rounded-[2.25rem] overflow-hidden border-2 border-white/20 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] w-60 sm:w-72 md:w-[340px] lg:w-[400px] xl:w-[450px] 2xl:w-[500px] h-[72vh] sm:h-[78vh] max-h-[840px] flex flex-col group hover:border-purple-400/90 transition-all">
             {/* Top Badge: "← Sebelumnya" or "Berikutnya →" */}
             <div className="p-3 pb-2 flex items-center justify-between z-20 shrink-0 bg-[#12162A] border-b border-white/5">
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-purple-400/40 text-purple-200 text-[11px] font-black shadow-lg backdrop-blur-md group-hover:bg-purple-600 group-hover:text-white transition-colors">
@@ -497,7 +496,7 @@ export const Lightbox = ({
 
         {/* Content Body with 3D Carousel Stage */}
         <div
-          className="w-full h-full flex items-center justify-center p-3 sm:p-8 pb-24 sm:pb-24 overflow-hidden relative"
+          className="w-full h-full flex items-center justify-center p-2 sm:p-4 pb-12 sm:pb-14 overflow-hidden relative"
           style={{ perspective: 1400 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -529,7 +528,7 @@ export const Lightbox = ({
           >
               {isGameScratch ? (
                 /* 1. Interactive Scratch / TurboWarp Player Frame */
-                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] aspect-[4/3] sm:aspect-video max-h-[72vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
+                <div className="w-full max-w-[95vw] sm:w-[560px] md:w-[680px] lg:w-[820px] xl:w-[940px] 2xl:w-[1040px] aspect-[4/3] sm:aspect-video max-h-[84vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
                   {/* Game Player Bar Header */}
                   <div className="bg-[#12162A] text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
@@ -543,6 +542,9 @@ export const Lightbox = ({
                     </span>
 
                     <div className="flex items-center gap-2 ml-auto">
+                      <span className="text-amber-200 text-xs sm:text-sm font-bold font-handwriting mr-1 hidden md:inline">
+                        {item.student?.name || 'Siswa'}
+                      </span>
                       {scratchId ? (
                         <>
                           {/* Player Switcher */}
@@ -555,7 +557,7 @@ export const Lightbox = ({
                                   : 'text-slate-400 hover:text-white'
                               }`}
                             >
-                              TurboWarp (60fps)
+                              TurboWarp
                             </button>
                             <button
                               onClick={() => setPlayerMode('scratch')}
@@ -565,7 +567,7 @@ export const Lightbox = ({
                                   : 'text-slate-400 hover:text-white'
                               }`}
                             >
-                              Scratch MIT
+                              MIT
                             </button>
                           </div>
 
@@ -573,7 +575,7 @@ export const Lightbox = ({
                             href={`https://scratch.mit.edu/projects/${scratchId}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
+                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
                             title="Buka Halaman Scratch MIT Resmi"
                           >
                             <ExternalLink size={13} />
@@ -581,16 +583,40 @@ export const Lightbox = ({
                           </a>
                         </>
                       ) : (
-                        <a
-                          href={turboWarpEditorUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs bg-slate-800 hover:bg-slate-750 hover:text-white text-slate-300 px-3.5 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700/80 shadow-md"
-                          title="Buka TurboWarp Web Editor di Tab Baru"
+                        <>
+                          <a
+                            href={turboWarpEditorUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs bg-slate-800 hover:bg-slate-750 hover:text-white text-slate-300 px-3 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700/80 shadow-md"
+                            title="Buka TurboWarp Web Editor di Tab Baru"
+                          >
+                            <ExternalLink size={13} />
+                            <span className="hidden sm:inline">TurboWarp</span>
+                          </a>
+                          <a
+                            href={directSb3Url || fileData}
+                            target="_blank"
+                            rel="noreferrer"
+                            download={fileName || `${item.title}.sb3`}
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
+                            title="Download File .sb3"
+                          >
+                            <Download size={13} />
+                            <span className="hidden sm:inline">Download</span>
+                          </a>
+                        </>
+                      )}
+
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(current.id)}
+                          className="bg-rose-600/80 hover:bg-rose-600 text-white p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-colors shadow-sm shrink-0 cursor-pointer"
+                          title="Hapus Karya"
                         >
-                          <ExternalLink size={13} />
-                          <span className="hidden sm:inline">TurboWarp Editor</span>
-                        </a>
+                          <Trash2 size={13} />
+                          <span className="hidden sm:inline">Hapus</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -635,7 +661,7 @@ export const Lightbox = ({
                 </div>
               ) : isPdf ? (
                 /* 2. Fullscreen Responsive PDF Viewer */
-                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] h-[64vh] sm:h-[68vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
+                <div className="w-full max-w-[95vw] sm:w-[560px] md:w-[680px] lg:w-[820px] xl:w-[940px] 2xl:w-[1040px] h-[78vh] sm:h-[82vh] max-h-[880px] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
                   {/* PDF Header Bar */}
                   <div className="bg-[#12162A] text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
@@ -649,25 +675,61 @@ export const Lightbox = ({
                     </span>
 
                     <div className="flex items-center gap-2 ml-auto">
+                      <span className="text-amber-200 text-xs sm:text-sm font-bold font-handwriting mr-1 hidden sm:inline">
+                        {item.student?.name || 'Siswa'}
+                      </span>
                       {driveId ? (
-                        <a
-                          href={driveDirectViewUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
-                          title="Buka PDF di Tab Baru"
-                        >
-                          <ExternalLink size={13} />
-                          <span className="hidden sm:inline">Buka di Tab Baru</span>
-                        </a>
+                        <>
+                          <a
+                            href={driveDirectViewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
+                            title="Buka PDF di Tab Baru"
+                          >
+                            <ExternalLink size={13} />
+                            <span className="hidden sm:inline">Buka Tab</span>
+                          </a>
+                          <a
+                            href={driveDirectDownloadUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
+                            title="Download PDF"
+                          >
+                            <Download size={13} />
+                            <span className="hidden sm:inline">Download</span>
+                          </a>
+                        </>
                       ) : (
+                        <>
+                          <button
+                            onClick={handleOpenBase64InTab}
+                            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
+                            title="Buka PDF di Tab Baru"
+                          >
+                            <ExternalLink size={13} />
+                            <span className="hidden sm:inline">Buka Tab</span>
+                          </button>
+                          <button
+                            onClick={handleDownloadBase64}
+                            className="bg-rose-600 hover:bg-rose-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
+                            title="Download PDF"
+                          >
+                            <Download size={13} />
+                            <span className="hidden sm:inline">Download</span>
+                          </button>
+                        </>
+                      )}
+
+                      {onDelete && (
                         <button
-                          onClick={handleOpenBase64InTab}
-                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
-                          title="Buka PDF di Tab Baru"
+                          onClick={() => onDelete(current.id)}
+                          className="bg-rose-600/80 hover:bg-rose-600 text-white p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-colors shadow-sm shrink-0 cursor-pointer"
+                          title="Hapus Karya Ini Secara Permanen"
                         >
-                          <ExternalLink size={13} />
-                          <span className="hidden sm:inline">Buka di Tab Baru</span>
+                          <Trash2 size={13} />
+                          <span className="hidden sm:inline">Hapus</span>
                         </button>
                       )}
                     </div>
@@ -684,7 +746,7 @@ export const Lightbox = ({
                 </div>
               ) : isOffice ? (
                 /* 3. Office Document Viewer (Word, Excel, PowerPoint) */
-                <div className="w-full max-w-[92vw] sm:w-[480px] md:w-[520px] lg:w-[560px] xl:w-[600px] h-[64vh] sm:h-[68vh] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
+                <div className="w-full max-w-[95vw] sm:w-[560px] md:w-[680px] lg:w-[820px] xl:w-[940px] 2xl:w-[1040px] h-[78vh] sm:h-[82vh] max-h-[880px] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col">
                   <div className="bg-[#12162A] text-slate-200 text-xs py-3 px-4 sm:px-5 font-bold flex flex-wrap justify-between items-center gap-2 shrink-0 border-b border-slate-700/80">
                     <span className="flex items-center gap-2 min-w-0">
                       <FileText size={18} className="text-blue-400 shrink-0" />
@@ -696,17 +758,31 @@ export const Lightbox = ({
                       </span>
                     </span>
                     <div className="flex items-center gap-2 ml-auto">
+                      <span className="text-amber-200 text-xs sm:text-sm font-bold font-handwriting mr-1 hidden sm:inline">
+                        {item.student?.name || 'Siswa'}
+                      </span>
                       {driveId ? (
                         <a
                           href={driveDirectViewUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
+                          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl font-bold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
                         >
                           <ExternalLink size={13} />
-                          <span className="hidden sm:inline">Buka di Drive</span>
+                          <span className="hidden sm:inline">Buka Drive</span>
                         </a>
                       ) : null}
+
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(current.id)}
+                          className="bg-rose-600/80 hover:bg-rose-600 text-white p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-colors shadow-sm shrink-0 cursor-pointer"
+                          title="Hapus Karya Ini Secara Permanen"
+                        >
+                          <Trash2 size={13} />
+                          <span className="hidden sm:inline">Hapus</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -740,9 +816,9 @@ export const Lightbox = ({
                 </div>
               ) : (
                 /* 4. Interactive Image Viewer with Pan & Zoom inside 3D Card Deck */
-                <div className="w-[88vw] sm:w-[440px] md:w-[480px] lg:w-[520px] xl:w-[560px] max-w-[92vw] h-[64vh] sm:h-[68vh] max-h-[700px] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden">
+                <div className="w-[94vw] sm:w-[560px] md:w-[680px] lg:w-[820px] xl:w-[940px] 2xl:w-[1040px] max-w-[95vw] h-[78vh] sm:h-[82vh] max-h-[880px] rounded-[2.25rem] bg-[#0E1222] border-2 border-white/25 shadow-[0_30px_90px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden">
                   {/* Card Header Bar */}
-                  <div className="px-5 py-3 sm:py-3.5 border-b border-slate-700/80 bg-[#12162A] flex items-center justify-between gap-3 shrink-0">
+                  <div className="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-slate-700/80 bg-[#12162A] flex items-center justify-between gap-2 sm:gap-4 shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-[11px] font-black shrink-0">
                         🎨 Karya Gambar
@@ -753,13 +829,51 @@ export const Lightbox = ({
                     </div>
 
                     <div className="flex items-center gap-2 text-right shrink-0">
-                      <span className="text-amber-200 text-xs sm:text-sm font-bold font-handwriting">
+                      <span className="text-amber-200 text-xs sm:text-sm font-bold font-handwriting hidden sm:inline">
                         {item.student?.name || 'Siswa'}
                       </span>
                       {totalItems > 1 && currentIndex !== undefined && (
                         <span className="text-slate-400 text-[10px] bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
                           {currentIndex + 1} / {totalItems}
                         </span>
+                      )}
+
+                      {/* Download Button */}
+                      {fileData && (
+                        driveId ? (
+                          <a
+                            href={driveDirectDownloadUrl || fileData}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            className="bg-purple-600/90 hover:bg-purple-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
+                            title="Buka / Download File"
+                          >
+                            <Download size={13} />
+                            <span className="hidden md:inline">Download</span>
+                          </a>
+                        ) : (
+                          <button
+                            onClick={handleDownloadBase64}
+                            className="bg-purple-600/90 hover:bg-purple-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm shrink-0 cursor-pointer"
+                            title="Download File"
+                          >
+                            <Download size={13} />
+                            <span className="hidden md:inline">Download</span>
+                          </button>
+                        )
+                      )}
+
+                      {/* Delete Button (Teacher / Admin) */}
+                      {onDelete && (
+                        <button
+                          onClick={() => onDelete(current.id)}
+                          className="bg-rose-600/80 hover:bg-rose-600 text-white p-1 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors shadow-sm shrink-0 cursor-pointer"
+                          title="Hapus Karya Ini Secara Permanen"
+                        >
+                          <Trash2 size={13} />
+                          <span className="hidden md:inline">Hapus</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -792,7 +906,7 @@ export const Lightbox = ({
                       alt={item.title}
                       draggable="false"
                       referrerPolicy="no-referrer"
-                      className="max-w-full max-h-[50vh] sm:max-h-[54vh] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none"
+                      className="max-w-full max-h-[68vh] sm:max-h-[72vh] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none"
                       style={{
                         transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel})`,
                         transition: isDragging ? 'none' : 'transform 0.15s ease-out',
@@ -820,7 +934,7 @@ export const Lightbox = ({
 
         {/* Carousel Quick Indicator Dots */}
         {totalItems > 1 && (
-          <div className="absolute bottom-20 sm:bottom-22 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 p-1.5 px-3 rounded-full bg-slate-900/85 border border-slate-700/60 backdrop-blur-xl shadow-2xl pointer-events-auto">
+          <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 p-1.5 px-3 rounded-full bg-slate-900/85 border border-slate-700/60 backdrop-blur-xl shadow-2xl pointer-events-auto">
             {Array.from({ length: Math.min(totalItems, 12) }).map((_, idx) => {
               const isActive =
                 totalItems <= 12
@@ -840,99 +954,6 @@ export const Lightbox = ({
             })}
           </div>
         )}
-
-        {/* Bottom Banner */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex justify-center z-50 pointer-events-none">
-          <div className="bg-slate-900/95 py-3.5 px-6 rounded-full border border-slate-700/60 backdrop-blur-xl max-w-2xl w-full shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3 pointer-events-auto">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="text-center sm:text-left flex-1 min-w-0"
-              >
-                <h4 className="text-sm font-extrabold text-white truncate">{item.title}</h4>
-                <p className="text-slate-400 text-xs truncate">
-                  {item.student?.name ? `Oleh: ${item.student.name}` : ''}
-                  {totalItems > 1 && currentIndex !== undefined
-                    ? ` • Karya ${currentIndex + 1} dari ${totalItems}`
-                    : ''}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {scratchId ? (
-                <a
-                  href={`https://scratch.mit.edu/projects/${scratchId}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-full text-xs font-bold inline-flex items-center gap-2 transition-colors shadow-lg shrink-0"
-                >
-                  <ExternalLink size={14} /> Buka di Scratch.mit.edu
-                </a>
-              ) : isGameScratch ? (
-                <a
-                  href={directSb3Url || fileData}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={fileName || `${item.title}.sb3`}
-                  className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-full text-xs font-bold inline-flex items-center gap-2 transition-colors shadow-lg shrink-0"
-                >
-                  <Download size={14} /> Download File .sb3
-                </a>
-              ) : isPdf ? (
-                driveId ? (
-                  <a
-                    href={driveDirectDownloadUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2 rounded-full text-xs font-bold inline-flex items-center gap-2 transition-colors shadow-lg shrink-0"
-                  >
-                    <Download size={14} /> Download PDF
-                  </a>
-                ) : (
-                  <button
-                    onClick={handleDownloadBase64}
-                    className="bg-rose-600 hover:bg-rose-500 text-white px-5 py-2 rounded-full text-xs font-bold inline-flex items-center gap-2 transition-colors shadow-lg shrink-0"
-                  >
-                    <Download size={14} /> Download PDF
-                  </button>
-                )
-              ) : fileData ? (
-                driveId ? (
-                  <a
-                    href={driveDirectDownloadUrl || fileData}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                    className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-full text-xs font-bold inline-flex items-center gap-2 transition-colors shadow-lg shrink-0"
-                  >
-                    <Download size={14} /> Buka / Download File
-                  </a>
-                ) : (
-                  <button
-                    onClick={handleDownloadBase64}
-                    className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-full text-xs font-bold inline-flex items-center gap-2 transition-colors shadow-lg shrink-0"
-                  >
-                    <Download size={14} /> Download File
-                  </button>
-                )
-              ) : null}
-              {onDelete && (
-                <button
-                  onClick={() => onDelete(current.id)}
-                  className="bg-rose-600/90 hover:bg-rose-600 text-white px-4 py-2 rounded-full text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-lg shrink-0 cursor-pointer"
-                  title="Hapus Karya Ini Secara Permanen"
-                >
-                  <Trash2 size={14} /> Hapus Karya
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </AnimatePresence>,
     document.body
