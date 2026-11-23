@@ -96,7 +96,7 @@ export const Lightbox = ({
       isFirstMount.current = false;
       gsap.fromTo(
         centerCardRef.current,
-        { scale: 0.94, opacity: 0, y: 15 },
+        { scale: 0.94, opacity: 1, y: 15 },
         { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: 'power2.out', force3D: true }
       );
       return;
@@ -104,7 +104,7 @@ export const Lightbox = ({
 
     if (direction === 0) return;
 
-    // Cinematic GSAP 3D Flip & Slide into Center Stage (Smooth, Elegant, Clear 3D Flip Perception)
+    // Cinematic GSAP 3D Flip & Slide into Center Stage (Solid 100% Opaque, Zero Transparency)
     gsap.fromTo(
       centerCardRef.current,
       {
@@ -112,7 +112,7 @@ export const Lightbox = ({
         rotationY: direction > 0 ? -22 : 22,
         rotationZ: direction > 0 ? 6 : -6,
         scale: 0.88,
-        opacity: 0.55,
+        opacity: 1,
         transformPerspective: 1200,
         transformOrigin: 'center center',
       },
@@ -154,14 +154,14 @@ export const Lightbox = ({
       >
         <motion.div
           key={`side-${type}-${subItem.id}`}
-          initial={{ opacity: 0, scale: 0.85 }}
+          initial={{ opacity: 1, scale: 0.85 }}
           animate={{
             x: isLeft ? -sideOffset : sideOffset,
             y: 0,
             scale: 0.92,
             rotateZ: isLeft ? -7 : 7,
             rotateY: isLeft ? 14 : -14,
-            opacity: zoomLevel > 1 ? 0.05 : 0.88,
+            opacity: zoomLevel > 1 ? 0 : 1,
           }}
           whileHover={{
             x: isLeft ? -(sideOffset + 18) : (sideOffset + 18),
@@ -523,7 +523,7 @@ export const Lightbox = ({
           <div
             ref={centerCardRef}
             key={`center-${item.id}`}
-            className="flex items-center justify-center max-w-full max-h-full z-20 select-none"
+            className="flex items-center justify-center max-w-full max-h-full z-30 select-none"
             style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
           >
               {isGameScratch ? (
