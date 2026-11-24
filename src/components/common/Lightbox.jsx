@@ -14,8 +14,6 @@ import {
   Play,
   FileText,
   FileSpreadsheet,
-  File,
-  Sparkles,
   ChevronLeft,
   ChevronRight,
   Trash2,
@@ -26,10 +24,12 @@ import {
   getDriveDownloadUrl,
   getDriveId,
   getScratchProjectId,
-  getScratchEmbedUrl,
   getTurboWarpEmbedUrl,
   isScratchProject,
 } from '../../utils/helpers';
+
+// Register Draggable plugin
+gsap.registerPlugin(Draggable);
 
 /**
  * GSAP buildSeamlessLoop Helper Function
@@ -87,10 +87,6 @@ export const Lightbox = ({
   isKelas6 = false,
   isScratch = false,
   onClose,
-  onPrev,
-  onNext,
-  hasPrev = false,
-  hasNext = false,
   totalItems,
   onDelete,
 }) => {
@@ -132,16 +128,18 @@ export const Lightbox = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDraggingImg, setIsDraggingImg] = useState(false);
   const [dragStartImg, setDragStartImg] = useState({ x: 0, y: 0 });
-  const [playerMode, setPlayerMode] = useState('turbowarp');
 
-  // GSAP References
-  const cardsRef = useRef([]);
+  // DOM & GSAP References
+  const galleryRef = useRef(null);
   const cardsContainerRef = useRef(null);
+  const cardsRef = useRef([]);
   const dragProxyRef = useRef(null);
   const seamlessLoopRef = useRef(null);
   const wrapTimeRef = useRef(null);
   const scrubRef = useRef(null);
   const playhead = useRef({ offset: 0 });
+  const lastActiveIdx = useRef(initialIndex);
+  const isDraggingCarousel = useRef(false);
 
   const spacing = 0.1;
   const snapTime = useMemo(() => gsap.utils.snap(spacing), [spacing]);
@@ -152,7 +150,25 @@ export const Lightbox = ({
     setPan({ x: 0, y: 0 });
   }, [activeIdx]);
 
-  // Lock body scroll & register keyboard navigation
+  // Scroll playhead smoothly to a target offset
+  const scrollToOffset = (targetOffset) => {
+    if (!scrubRef.current) return;
+    const snapped = snapTime(targetOffset);
+    scrubRef.current.vars.offset = snapped;
+    scrubRef.current.invalidate().restart();
+  };
+
+  const handleNextSlide = () => {
+    if (!scrubRef.current) return;
+    scrollToOffset(scrubRef.current.vars.offset + spacing);
+  };
+
+  const handlePrevSlide = () => {
+    if (!scrubRef.current) return;
+    scrollToOffset(scrubRef.current.vars.offset - spacing);
+  };
+
+  // Keyboard navigation
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     const originalOverscroll = document.body.style.overscrollBehavior;
@@ -177,33 +193,13 @@ export const Lightbox = ({
     };
   }, [onClose]);
 
-  // Scroll playhead to a target offset smoothly
-  const scrollToOffset = (targetOffset) => {
-    if (!scrubRef.current) return;
-    const snapped = snapTime(targetOffset);
-    scrubRef.current.vars.offset = snapped;
-    scrubRef.current.invalidate().restart();
-  };
-
-  const handleNextSlide = () => {
-    if (!scrubRef.current) return;
-    scrollToOffset(scrubRef.current.vars.offset + spacing);
-  };
-
-  const handlePrevSlide = () => {
-    if (!scrubRef.current) return;
-    scrollToOffset(scrubRef.current.vars.offset - spacing);
-  };
-
-  // Build the GSAP Seamless Loop and Draggable
+  // Build the GSAP Seamless Loop & Draggable
   useEffect(() => {
     if (displayItems.length === 0) return;
     const cards = cardsRef.current.filter(Boolean);
     if (cards.length === 0) return;
 
-    gsap.registerPlugin(Draggable);
-
-    // Initial state matching GSAP CodePen demo
+    // Set initial state of items (from GSAP demo: xPercent 400, opacity 0, scale 0)
     gsap.set(cards, { xPercent: 400, opacity: 0, scale: 0 });
 
     // animateFunc from GSAP Demo Hub
@@ -237,16 +233,22 @@ export const Lightbox = ({
     const wrapTime = gsap.utils.wrap(0, seamlessLoop.duration());
     wrapTimeRef.current = wrapTime;
 
+    // Scrub tween (smoothly scrubs playhead on seamlessLoop)
     const scrub = gsap.to(playhead.current, {
       offset: 0,
       onUpdate() {
         seamlessLoop.time(wrapTime(playhead.current.offset));
+
+        // High-performance index sync: only trigger state update when active card changes!
         const curOffset = playhead.current.offset;
         const wrappedT = wrapTime(curOffset);
         const displayIdx = Math.round(wrappedT / spacing) % cards.length;
         const origIdx = displayItems[displayIdx]?.originalIndex ?? 0;
-        setActiveIdx(origIdx);
-        onNavigate?.(origIdx);
+        if (origIdx !== lastActiveIdx.current) {
+          lastActiveIdx.current = origIdx;
+          setActiveIdx(origIdx);
+          onNavigate?.(origIdx);
+        }
       },
       duration: 0.5,
       ease: 'power3',
@@ -259,22 +261,34 @@ export const Lightbox = ({
     playhead.current.offset = startOffset;
     scrub.vars.offset = startOffset;
     seamlessLoop.time(wrapTime(startOffset));
+    lastActiveIdx.current = initialIndex;
     setActiveIdx(initialIndex);
 
-    // Draggable functionality matching GSAP Demo
+    // Draggable functionality (CodePen implementation)
     let draggableInstance = null;
-    if (dragProxyRef.current && cardsContainerRef.current) {
-      const created = Draggable.create(dragProxyRef.current, {
+    const proxy = dragProxyRef.current;
+    const triggerArea = galleryRef.current;
+
+    if (proxy && triggerArea) {
+      const created = Draggable.create(proxy, {
         type: 'x',
-        trigger: cardsContainerRef.current,
+        trigger: triggerArea,
+        minimumMovement: 4,
+        cursor: 'grab',
+        activeCursor: 'grabbing',
         onPress() {
+          isDraggingCarousel.current = true;
           this.startOffset = scrub.vars.offset;
+          gsap.killTweensOf(playhead.current);
         },
         onDrag() {
           scrub.vars.offset = this.startOffset + (this.startX - this.x) * 0.001;
           scrub.invalidate().restart();
         },
         onDragEnd() {
+          setTimeout(() => {
+            isDraggingCarousel.current = false;
+          }, 50);
           scrollToOffset(scrub.vars.offset);
         },
       });
@@ -288,9 +302,10 @@ export const Lightbox = ({
     };
   }, [displayItems.length, initialIndex]);
 
-  // Click any card to navigate it to center
+  // Click any card directly to glide it to center
   const handleCardClick = (targetDisplayIndex) => {
-    if (!scrubRef.current) return;
+    if (isDraggingCarousel.current) return;
+    if (!scrubRef.current || !seamlessLoopRef.current) return;
     const curOffset = scrubRef.current.vars.offset;
     const currentDisplayIdx = Math.round(curOffset / spacing) % displayItems.length;
     let diff = targetDisplayIndex - ((currentDisplayIdx + displayItems.length) % displayItems.length);
@@ -302,7 +317,7 @@ export const Lightbox = ({
 
   if (!item || typeof document === 'undefined') return null;
 
-  // Currently active item
+  // Active item details
   const activeItem = originalItems[activeIdx] || item;
   const activeFileData = activeItem?.fileData || '';
   const activeFileExt = (activeItem?.fileExt || '').toLowerCase();
@@ -314,21 +329,6 @@ export const Lightbox = ({
   const activeDriveDownloadUrl = activeDriveId
     ? getDriveDownloadUrl(activeDriveId)
     : activeFileData;
-
-  // Active item type checks
-  const isActiveGameScratch =
-    isScratch ||
-    isKelas6 ||
-    isScratchProject(activeItem, data?.projects, data?.classes, data?.users);
-
-  const isActivePdf =
-    activeFileExt === 'pdf' ||
-    (typeof activeFileData === 'string' &&
-      (activeFileData.startsWith('data:application/pdf') ||
-        activeFileData.toLowerCase().includes('.pdf') ||
-        activeFileName.toLowerCase().endsWith('.pdf')));
-
-  const isActiveOffice = ['ppt', 'pptx', 'xls', 'xlsx', 'doc', 'docx'].includes(activeFileExt);
 
   const handleDownloadBase64 = () => {
     try {
@@ -346,11 +346,11 @@ export const Lightbox = ({
   return createPortal(
     <AnimatePresence>
       <div
-        className="fixed inset-0 z-[9999999] bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-between select-none overflow-hidden"
+        className="fixed inset-0 z-[9999999] bg-[#0A0D18]/95 backdrop-blur-2xl flex flex-col items-center justify-between select-none overflow-hidden"
         style={{ width: '100vw', height: '100dvh', margin: 0, padding: 0 }}
       >
         {/* Top Header Control Bar */}
-        <div className="w-full px-4 sm:px-8 py-3.5 flex items-center justify-between z-50 shrink-0 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl">
+        <div className="w-full px-4 sm:px-8 py-3.5 flex items-center justify-between z-50 shrink-0 border-b border-white/10 bg-slate-900/70 backdrop-blur-xl">
           {/* Zoom & Pan Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-800/80 p-1 rounded-2xl border border-slate-700/60 shadow-lg">
             <button
@@ -406,11 +406,18 @@ export const Lightbox = ({
           </button>
         </div>
 
-        {/* The GSAP Gallery & Cards Stage */}
-        <div className="gallery relative w-full flex-1 flex items-center justify-center overflow-hidden">
+        {/* The GSAP Gallery & Cards Stage (Full Mouse Drag Trigger) */}
+        <div
+          ref={galleryRef}
+          className="gallery relative w-full flex-1 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+          style={{ touchAction: 'pan-y' }}
+        >
           {/* Circular Navigation Arrow Left */}
           <button
-            onClick={handlePrevSlide}
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePrevSlide();
+            }}
             className="absolute left-3 sm:left-8 top-1/2 -translate-y-1/2 z-40 p-3 sm:p-4 rounded-full bg-slate-900/85 hover:bg-purple-600 text-white border border-white/20 shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Sebelumnya (Panah Kiri)"
           >
@@ -420,7 +427,7 @@ export const Lightbox = ({
           {/* Cards List Stack (Driven by GSAP buildSeamlessLoop) */}
           <ul
             ref={cardsContainerRef}
-            className="cards absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 sm:w-72 md:w-80 lg:w-96 xl:w-[440px] 2xl:w-[480px] h-[52vh] sm:h-[58vh] max-h-[620px] pointer-events-none list-none m-0 p-0"
+            className="cards absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-64 sm:w-72 md:w-80 lg:w-96 xl:w-[420px] 2xl:w-[460px] h-[52vh] sm:h-[58vh] max-h-[600px] list-none m-0 p-0"
             style={{ perspective: '1400px', transformStyle: 'preserve-3d' }}
           >
             {displayItems.map((subItem, index) => {
@@ -441,17 +448,22 @@ export const Lightbox = ({
                 <li
                   key={`card-${subItem.id}-${index}`}
                   ref={(el) => (cardsRef.current[index] = el)}
-                  onClick={() => handleCardClick(index)}
-                  className={`absolute inset-0 list-none rounded-[2rem] overflow-hidden border-2 transition-colors duration-300 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] flex flex-col pointer-events-auto select-none ${
+                  onClick={(e) => {
+                    // Only handle click if user didn't drag
+                    if (!isDraggingCarousel.current && !isCenter) {
+                      e.stopPropagation();
+                      handleCardClick(index);
+                    }
+                  }}
+                  className={`absolute inset-0 list-none rounded-[2rem] overflow-hidden border-2 bg-[#0E1222] shadow-[0_25px_60px_rgba(0,0,0,0.85)] flex flex-col select-none ${
                     isCenter
-                      ? 'border-purple-400 shadow-[0_0_40px_rgba(168,85,247,0.35)] cursor-default'
-                      : 'border-white/20 hover:border-purple-400/80 cursor-pointer'
+                      ? 'border-purple-400 shadow-[0_0_45px_rgba(168,85,247,0.4)]'
+                      : 'border-white/20'
                   }`}
                   style={{
                     willChange: 'transform, opacity',
                     transformStyle: 'preserve-3d',
                   }}
-                  title={isCenter ? subItem.title : `Klik untuk buka karya: ${subItem.title}`}
                 >
                   {/* Card Header Bar */}
                   <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-white/10 bg-[#12162A] flex items-center justify-between gap-2 shrink-0">
@@ -527,13 +539,12 @@ export const Lightbox = ({
                     }}
                     onMouseDown={(e) => {
                       if (!isCenter || zoomLevel <= 1) return;
-                      e.preventDefault();
+                      e.stopPropagation();
                       setIsDraggingImg(true);
                       setDragStartImg({ x: e.clientX - pan.x, y: e.clientY - pan.y });
                     }}
                     onMouseMove={(e) => {
                       if (!isDraggingImg || zoomLevel <= 1) return;
-                      e.preventDefault();
                       setPan({ x: e.clientX - dragStartImg.x, y: e.clientY - dragStartImg.y });
                     }}
                     onMouseUp={() => setIsDraggingImg(false)}
@@ -541,14 +552,14 @@ export const Lightbox = ({
                   >
                     {isScratchSub ? (
                       /* Scratch project preview */
-                      <div className="w-full h-full rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-4 text-center text-white relative overflow-hidden">
-                        <Gamepad2 size={48} className="text-white mb-2 drop-shadow-md animate-bounce" />
+                      <div className="w-full h-full rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-purple-600 flex flex-col items-center justify-center p-4 text-center text-white relative overflow-hidden pointer-events-none">
+                        <Gamepad2 size={48} className="text-white mb-2 drop-shadow-md" />
                         <h4 className="text-sm font-black line-clamp-1">{subItem.title}</h4>
                         <span className="text-[10px] font-bold text-amber-200 mt-1 bg-black/40 px-2.5 py-0.5 rounded-full">
                           Game Scratch ({studentName})
                         </span>
                         {isCenter && (
-                          <div className="mt-3 flex items-center gap-2">
+                          <div className="mt-3 flex items-center gap-2 pointer-events-auto">
                             <a
                               href={getTurboWarpEmbedUrl(getScratchProjectId(sData)) || sData}
                               target="_blank"
@@ -563,7 +574,7 @@ export const Lightbox = ({
                       </div>
                     ) : isPdfSub ? (
                       /* PDF preview */
-                      <div className="w-full h-full relative rounded-2xl overflow-hidden bg-slate-950 flex flex-col items-center justify-center p-4 text-center">
+                      <div className="w-full h-full relative rounded-2xl overflow-hidden bg-slate-950 flex flex-col items-center justify-center p-4 text-center pointer-events-none">
                         <div className="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-2">
                           <FileText size={32} />
                         </div>
@@ -572,20 +583,22 @@ export const Lightbox = ({
                         </h4>
                         <span className="text-slate-400 text-[10px] mt-0.5">Dokumen PDF Siswa</span>
                         {isCenter && (
-                          <a
-                            href={activeDriveViewUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-3 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-lg transition-all hover:scale-105"
-                          >
-                            <ExternalLink size={12} /> Baca PDF
-                          </a>
+                          <div className="pointer-events-auto">
+                            <a
+                              href={activeDriveViewUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-3 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-lg transition-all hover:scale-105 inline-block"
+                            >
+                              <ExternalLink size={12} /> Baca PDF
+                            </a>
+                          </div>
                         )}
                       </div>
                     ) : isOfficeSub ? (
                       /* Office preview */
-                      <div className="w-full h-full rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col items-center justify-center p-4 text-center text-white">
+                      <div className="w-full h-full rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col items-center justify-center p-4 text-center text-white pointer-events-none">
                         <FileSpreadsheet size={44} className="text-white mb-2 drop-shadow-md" />
                         <h4 className="text-xs sm:text-sm font-black line-clamp-1">{subItem.title}</h4>
                         <span className="text-[10px] font-bold text-blue-200 mt-1 bg-black/30 px-2 py-0.5 rounded-full uppercase">
@@ -597,7 +610,7 @@ export const Lightbox = ({
                               e.stopPropagation();
                               handleDownloadBase64();
                             }}
-                            className="mt-3 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-black text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-lg border border-white/20 transition-all hover:scale-105"
+                            className="mt-3 px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-black text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-lg border border-white/20 transition-all hover:scale-105 pointer-events-auto"
                           >
                             <Download size={12} /> Unduh File
                           </button>
@@ -610,14 +623,12 @@ export const Lightbox = ({
                         alt={subItem.title}
                         draggable="false"
                         referrerPolicy="no-referrer"
-                        className={`max-w-full max-h-full object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none transition-transform ${
-                          isCenter && zoomLevel > 1 ? 'cursor-grab active:cursor-grabbing' : ''
-                        }`}
+                        className="max-w-full max-h-full object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none pointer-events-none"
                         style={{
                           transform: isCenter
                             ? `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel})`
                             : undefined,
-                          transition: isDraggingImg ? 'none' : 'transform 0.15s ease-out',
+                          pointerEvents: isCenter && zoomLevel > 1 ? 'auto' : 'none',
                         }}
                         onError={(e) => {
                           const dId = getDriveId(sData);
@@ -648,7 +659,10 @@ export const Lightbox = ({
 
           {/* Circular Navigation Arrow Right */}
           <button
-            onClick={handleNextSlide}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleNextSlide();
+            }}
             className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 z-40 p-3 sm:p-4 rounded-full bg-slate-900/85 hover:bg-purple-600 text-white border border-white/20 shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:scale-110 active:scale-95 transition-all cursor-pointer"
             title="Berikutnya (Panah Kanan)"
           >
@@ -701,8 +715,20 @@ export const Lightbox = ({
           </div>
         </div>
 
-        {/* Hidden Drag Proxy for GSAP Draggable */}
-        <div ref={dragProxyRef} className="drag-proxy hidden absolute pointer-events-none" />
+        {/* Real GSAP Draggable Proxy Element (visibility: hidden, NOT display: none!) */}
+        <div
+          ref={dragProxyRef}
+          className="drag-proxy"
+          style={{
+            position: 'absolute',
+            visibility: 'hidden',
+            width: '10px',
+            height: '10px',
+            top: 0,
+            left: 0,
+            pointerEvents: 'none',
+          }}
+        />
       </div>
     </AnimatePresence>,
     document.body
