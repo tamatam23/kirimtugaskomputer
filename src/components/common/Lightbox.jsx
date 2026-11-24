@@ -106,8 +106,8 @@ export const Lightbox = ({
 
     gsap.to(playhead.current, {
       offset: snapped,
-      duration: 0.72,
-      ease: 'power2.out',
+      duration: 0.8,
+      ease: 'power3.out',
       overwrite: 'auto',
       onUpdate() {
         if (seamlessLoopRef.current && wrapTimeRef.current) {
@@ -150,8 +150,8 @@ export const Lightbox = ({
       const tl = gsap.timeline();
       tl.fromTo(
         element,
-        { scale: 0.65, opacity: 0.35, zIndex: 10 },
-        { scale: 1, opacity: 1, zIndex: 100, duration: 0.5, yoyo: true, repeat: 1, ease: 'power1.in', immediateRender: false }
+        { scale: 0.62, opacity: 0.35, zIndex: 10 },
+        { scale: 1.08, opacity: 1, zIndex: 100, duration: 0.5, yoyo: true, repeat: 1, ease: 'power2.in', immediateRender: false }
       ).fromTo(
         element,
         { xPercent: 320, rotateY: -26, rotateZ: 4 },
@@ -466,16 +466,16 @@ export const Lightbox = ({
             <motion.div
               key={`glow-${currentItem?.id}`}
               initial={{ opacity: 0, scale: 0.75 }}
-              animate={{ opacity: 0.45, scale: 1 }}
+              animate={{ opacity: 0.5, scale: 1 }}
               exit={{ opacity: 0, scale: 0.75 }}
               transition={{ duration: 0.5 }}
-              className="w-[420px] h-[420px] sm:w-[580px] sm:h-[580px] rounded-full bg-gradient-to-tr from-purple-600/35 via-indigo-600/25 to-pink-500/25 blur-3xl pointer-events-none"
+              className="w-[500px] h-[500px] sm:w-[680px] sm:h-[680px] rounded-full bg-gradient-to-tr from-purple-600/35 via-indigo-600/25 to-pink-500/25 blur-3xl pointer-events-none"
             />
           </div>
 
           {/* Central Deck Anchor Frame (Holds All Infinite Loop Cards) */}
           <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] sm:w-[420px] md:w-[480px] lg:w-[540px] xl:w-[580px] h-[58vh] sm:h-[62vh] max-h-[600px] select-none pointer-events-none"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] sm:w-[480px] md:w-[560px] lg:w-[640px] xl:w-[720px] 2xl:w-[780px] h-[64vh] sm:h-[68vh] md:h-[70vh] max-h-[720px] select-none pointer-events-none"
             style={{ transformStyle: 'preserve-3d' }}
           >
             {displayItems.map((subItem, index) => {
@@ -509,10 +509,10 @@ export const Lightbox = ({
                       handleCardClick(originalIdx);
                     }
                   }}
-                  className={`absolute inset-0 w-full h-full rounded-[2.25rem] overflow-hidden border-2 bg-[#0E1222] shadow-[0_30px_90px_rgba(0,0,0,0.95)] flex flex-col pointer-events-auto transition-colors ${
+                  className={`absolute inset-0 w-full h-full rounded-[2.25rem] overflow-hidden border-2 bg-[#0E1222] flex flex-col pointer-events-auto transition-all duration-300 ${
                     isCenterActive
-                      ? 'border-white/30'
-                      : 'border-white/15 hover:border-purple-400/80 cursor-pointer'
+                      ? 'border-purple-400/60 shadow-[0_35px_100px_rgba(0,0,0,0.95),0_0_40px_rgba(168,85,247,0.22)]'
+                      : 'border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.85)] hover:border-purple-400/70 cursor-pointer'
                   }`}
                   style={{
                     transformStyle: 'preserve-3d',
@@ -700,7 +700,7 @@ export const Lightbox = ({
                         alt={subItem.title}
                         draggable="false"
                         referrerPolicy="no-referrer"
-                        className="max-w-full max-h-[44vh] sm:max-h-[48vh] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none"
+                        className="max-w-full max-h-[50vh] sm:max-h-[54vh] md:max-h-[57vh] lg:max-h-[60vh] object-contain drop-shadow-[0_20px_50px_rgba(0,0,0,0.7)] rounded-xl select-none"
                         style={
                           isCenterActive
                             ? {
