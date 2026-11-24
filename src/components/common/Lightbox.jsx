@@ -148,15 +148,31 @@ export const Lightbox = ({
 
     const animateFunc = (element) => {
       const tl = gsap.timeline();
+      // 1. Scale & Z-Index: Dramatic zoom in to 1.08 at center, solid layering
       tl.fromTo(
         element,
-        { scale: 0.62, opacity: 0.35, zIndex: 10 },
-        { scale: 1.08, opacity: 1, zIndex: 100, duration: 0.5, yoyo: true, repeat: 1, ease: 'power2.in', immediateRender: false }
-      ).fromTo(
+        { scale: 0.62, zIndex: 10 },
+        { scale: 1.08, zIndex: 100, duration: 0.5, yoyo: true, repeat: 1, ease: 'power2.in', immediateRender: false }
+      )
+      // 2. Horizontal slide & 3D tilt
+      .fromTo(
         element,
         { xPercent: 320, rotateY: -26, rotateZ: 4 },
         { xPercent: -320, rotateY: 26, rotateZ: -4, duration: 1, ease: 'none', immediateRender: false },
         0
+      )
+      // 3. Opacity: 100% SOLID across entire visible stage (zero transparency on all visible cards)
+      // Only fades in/out at the extreme offscreen perimeter (> 250% xPercent)
+      .fromTo(
+        element,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.1, ease: 'power1.in', immediateRender: false },
+        0
+      )
+      .to(
+        element,
+        { opacity: 0, duration: 0.1, ease: 'power1.out' },
+        0.9
       );
       return tl;
     };
