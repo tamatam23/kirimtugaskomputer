@@ -284,3 +284,75 @@ Aplikasi telah dibersihkan secara komprehensif mengikuti standar **Anti-Slop UI 
    * **Ukuran Base64 Teroptimasi:** Kompresi 200x200 @ 0.72 (~8-12KB) mencegah string base64 terpotong oleh batasan sel Google Sheets (50.000 karakter).
    * **Multi-Endpoint Drive Thumbnail:** Endpoint `drive.google.com/thumbnail?id=...&sz=w400` menangani izin akses publik dengan stabil.
    * **Auto Fallback Kamera / Inisial:** Jika gambar gagal dimuat (403/404/corrupt), sistem otomatis menampilkan placeholder kamera atau inisial nama tanpa pernah merusak tata letak atau menampilkan lingkaran transparan dengan teks alt.
+
+
+---
+
+## 14. Perbaikan Bug Galeri Guru & Filter Karya (Sesi Nov 25, 2026)
+
+### Masalah yang Ditemukan
+
+**Root Cause:** Bukan bug kode, melainkan masalah UX filter tugas + normalisasi ID string.
+
+1. **Dropdown filter tugas terlalu sempit** (`max-w-[170px]`) sehingga judul tugas terpotong — "Membuat Disain Ka..." terlihat seolah satu tugas, padahal ada dua:
+   - "Membuat Disain Karakter Panda" → **0 karya** (yang dipilih guru tanpa sadar)
+   - "Membuat Design T-Shirt With CorelDraw" → **13 karya** (tugas yang dimaksud)
+2. **ID matching terlalu ketat** (`===`) tanpa normalisasi string, rentan terhadap spasi tersembunyi atau perbedaan huruf besar/kecil.
+3. **Data siswa di spreadsheet sudah ada** — total 31 karya siswa 5A terverifikasi via GViz live query. Tidak ada data yang hilang.
+4. **Payload submission kurang lengkap** — `studentName`, `classId`, `className` tidak disertakan sehingga filter fallback gagal.
+
+### Perbaikan yang Diterapkan
+
+| File | Perubahan |
+|---|---|
+| `src/components/teacher/TeacherGallery.jsx` | Semua ID matching dinormalisasi `String().trim().toLowerCase()` |
+| `src/components/teacher/TeacherGallery.jsx` | Helper `getSubmissionsCountForProject(projectId)` + `totalClassSubmissions` |
+| `src/components/teacher/TeacherGallery.jsx` | Dropdown tugas diperlebar + tampilkan jumlah karya: `Membuat Design T-Shirt (13 karya)` |
+| `src/components/teacher/TeacherGallery.jsx` | Empty state informatif + tombol "Lihat Semua Karya 5A (31 Karya)" jika tugas terpilih 0 karya |
+| `src/components/teacher/TeacherGallery.jsx` | Sidebar "Belum Kumpul" diperbarui ID matching-nya |
+| `src/components/student/StudentUpload.jsx` | Payload submission menyertakan `studentName`, `classId`, `className` sebagai fallback data |
+
+### Golden Rule Tambahan (wajib dipatuhi)
+
+- **JANGAN batasi lebar dropdown filter tugas di bawah 200px.** Gunakan min-width atau truncate yang proporsional.
+
+---
+
+## 15. Redirect Domain Terpusat (Sesi Nov 25, 2026)
+
+### Masalah
+
+Dua domain aktif secara paralel:
+- `kirimtugaskomputer.vercel.app` (default Vercel)
+- `kirimtugaskomputer.my.id` (domain custom)
+
+Siswa yang mengakses `.vercel.app` menyimpan data di `localStorage` browser domain tersebut. Data tidak sync ke domain `.my.id` yang berbeda origin → karya tidak muncul di halaman guru yang membuka `.my.id`.
+
+### Solusi yang Diterapkan
+
+1. **`vercel.json`** — Redirect 301 permanen: semua traffic dari `kirimtugaskomputer.vercel.app` → `https://kirimtugaskomputer.my.id/$1`
+2. **`index.html`** — Script inline redirect browser-side sebagai lapisan pengaman kedua
+3. **Rekomendasi manual:** Vercel Dashboard → Settings → Domains → Set `kirimtugaskomputer.my.id` sebagai **primary domain**
+
+### Instruksi untuk Pengguna
+
+- Bagikan **hanya** link `https://kirimtugaskomputer.my.id` kepada semua siswa
+- Hapus link lama `.vercel.app` dari grup WhatsApp / papan pengumuman
+
+---
+
+## 16. Temuan Teknis Spreadsheet & GAS (Sesi Nov 25, 2026)
+
+### Spreadsheet ID
+`1xqVsKnSEiasss2f_o7FY-F7cZy3Pyz5cMp-4J1tG6RM`
+
+### Record Korup di Sheet `classes`
+Sheet `classes` memiliki 1 record korup: `class-1` dengan nama `{"name":"Kelas 5A",...}` (nilai JSON tertulis sebagai string). Filter ID harus mengabaikan record ini secara otomatis — sudah ditangani oleh normalisasi string.
+
+### GAS Web App
+URL GAS yang ditemukan di git history mengembalikan HTML (bukan JSON), menandakan endpoint tersebut adalah endpoint lama dan tidak aktif sebagai REST API. Aplikasi sudah berjalan dengan fallback GViz read-only yang berfungsi normal.
+
+### Verifikasi Data Live (GViz Query Nov 25, 2026)
+- Sheet `submissions`: 88 baris data, sudah ada karya dari Adskhan, Adreena, Alfatih, Nisrina, dll.
+- Tugas T-Shirt (5A): 13 karya terverifikasi
+- Total karya siswa 5A: 31 karya terverifikasi
