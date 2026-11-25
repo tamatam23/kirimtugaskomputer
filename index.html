@@ -9,6 +9,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Fredoka:wght@500;600;700;800&family=Kalam:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="/logo.png" />
+    <script>
+      // Otomatis alihkan siswa/guru jika membuka domain .vercel.app ke domain utama kirimtugaskomputer.my.id
+      if (window.location.hostname.endsWith('.vercel.app')) {
+        window.location.replace('https://kirimtugaskomputer.my.id' + window.location.pathname + window.location.search);
+      }
+    </script>
   </head>
   <body class="bg-[#F8F7FF] text-slate-800 antialiased selection:bg-purple-100 selection:text-purple-700 min-h-screen">
     <div id="root"></div>
