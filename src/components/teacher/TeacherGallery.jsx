@@ -92,42 +92,111 @@ export const TeacherGallery = () => {
       return true;
     }
     return (Array.isArray(p.classId) ? p.classId : [p.classId]).some((cid) => {
-      const cObj = data.classes.find((c) => c.id === cid);
+      const cObj = data.classes.find((c) => String(c.id).trim() === String(cid).trim());
       const pNorm = cObj
         ? cObj.name
             .toLowerCase()
             .replace(/kelas/gi, '')
             .replace(/[^a-z0-9]/g, '')
-        : '';
+        : String(cid)
+            .toLowerCase()
+            .replace(/kelas/gi, '')
+            .replace(/[^a-z0-9]/g, '');
       return pNorm === activeNorm;
     });
   });
 
+  // Helper: Hitung jumlah karya per tugas untuk kelas yang sedang aktif
+  const getSubmissionsCountForProject = (projectId) => {
+    return data.submissions.filter((sub) => {
+      const subProjId = String(sub.projectId || '').trim();
+      const projIdStr = String(projectId).trim();
+      const projObj = data.projects.find((p) => String(p.id).trim() === projIdStr);
+      const projTitle = projObj ? projObj.title.trim().toLowerCase() : '';
+      const passProj = subProjId === projIdStr || (projTitle && subProjId.toLowerCase() === projTitle);
+      if (!passProj) return false;
+
+      if (activeFolder === 'all') return true;
+      const student = data.users.find(
+        (u) =>
+          String(u.id).trim().toLowerCase() === String(sub.studentId || '').trim().toLowerCase() ||
+          (u.name && sub.studentName && u.name.trim().toLowerCase() === sub.studentName.trim().toLowerCase())
+      );
+      const studentClassObj = student
+        ? data.classes.find((c) => String(c.id).trim() === String(student.classId).trim())
+        : null;
+      const studentNorm = studentClassObj
+        ? studentClassObj.name.toLowerCase().replace(/kelas/gi, '').replace(/[^a-z0-9]/g, '')
+        : String(student?.classId || sub.className || sub.classId || '')
+            .toLowerCase()
+            .replace(/kelas/gi, '')
+            .replace(/[^a-z0-9]/g, '');
+      return studentNorm === activeNorm;
+    }).length;
+  };
+
+  const totalClassSubmissions = data.submissions.filter((sub) => {
+    if (activeFolder === 'all') return true;
+    const student = data.users.find(
+      (u) =>
+        String(u.id).trim().toLowerCase() === String(sub.studentId || '').trim().toLowerCase() ||
+        (u.name && sub.studentName && u.name.trim().toLowerCase() === sub.studentName.trim().toLowerCase())
+    );
+    const studentClassObj = student
+      ? data.classes.find((c) => String(c.id).trim() === String(student.classId).trim())
+      : null;
+    const studentNorm = studentClassObj
+      ? studentClassObj.name.toLowerCase().replace(/kelas/gi, '').replace(/[^a-z0-9]/g, '')
+      : String(student?.classId || sub.className || sub.classId || '')
+          .toLowerCase()
+          .replace(/kelas/gi, '')
+          .replace(/[^a-z0-9]/g, '');
+    return studentNorm === activeNorm;
+  }).length;
+
   // Main Submissions Filter
   const filteredSubmissions = data.submissions.filter((sub) => {
-    const student = data.users.find((u) => u.id === sub.studentId);
+    const student = data.users.find(
+      (u) =>
+        String(u.id).trim().toLowerCase() === String(sub.studentId || '').trim().toLowerCase() ||
+        (u.name && sub.studentName && u.name.trim().toLowerCase() === sub.studentName.trim().toLowerCase())
+    );
     let passClass = true;
     if (activeFolder !== 'all') {
-      const studentClassObj = student ? data.classes.find((c) => c.id === student.classId) : null;
+      const studentClassObj = student
+        ? data.classes.find((c) => String(c.id).trim() === String(student.classId).trim())
+        : null;
       const studentNorm = studentClassObj
         ? studentClassObj.name
             .toLowerCase()
             .replace(/kelas/gi, '')
             .replace(/[^a-z0-9]/g, '')
-        : '';
+        : String(student?.classId || sub.className || sub.classId || '')
+            .toLowerCase()
+            .replace(/kelas/gi, '')
+            .replace(/[^a-z0-9]/g, '');
       passClass = studentNorm === activeNorm;
     } else if (globalClassFilter !== 'all') {
-      passClass = student && student.classId === globalClassFilter;
+      passClass =
+        (student && String(student.classId).trim() === String(globalClassFilter).trim()) ||
+        String(sub.classId || '').trim() === String(globalClassFilter).trim();
     }
 
     let passProject = true;
     if (activeProjectFilter !== 'all') {
-      passProject = sub.projectId === activeProjectFilter;
+      const subProjId = String(sub.projectId || '').trim();
+      const activeFilterId = String(activeProjectFilter).trim();
+      const activeProjObj = data.projects.find((p) => String(p.id).trim() === activeFilterId);
+      const activeProjTitle = activeProjObj ? activeProjObj.title.trim().toLowerCase() : '';
+
+      passProject =
+        subProjId === activeFilterId ||
+        (activeProjTitle && subProjId.toLowerCase() === activeProjTitle);
     }
 
     let passSearch = true;
     if (searchQuery.trim() !== '') {
-      const sName = student ? student.name.toLowerCase() : '';
+      const sName = (student?.name || sub.studentName || '').toLowerCase();
       passSearch = sName.includes(searchQuery.toLowerCase());
     }
 
@@ -351,14 +420,20 @@ export const TeacherGallery = () => {
           <select
             value={activeProjectFilter}
             onChange={(e) => setActiveProjectFilter(e.target.value)}
-            className="text-xs font-bold px-3 py-2 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm text-slate-700 max-w-[170px] truncate"
+            className="text-xs font-bold px-3 py-2 rounded-2xl border border-purple-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm text-slate-700 w-auto min-w-[200px] max-w-[340px] truncate"
+            title="Pilih tugas untuk menyaring karya"
           >
-            <option value="all">-- Semua Tugas --</option>
-            {availableProjectsForClass.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
+            <option value="all">
+              -- Semua Tugas {totalClassSubmissions > 0 ? `(${totalClassSubmissions} karya)` : ''} --
+            </option>
+            {availableProjectsForClass.map((p) => {
+              const count = getSubmissionsCountForProject(p.id);
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.title} ({count} karya)
+                </option>
+              );
+            })}
           </select>
 
           {/* Search by Student Name */}
@@ -397,8 +472,33 @@ export const TeacherGallery = () => {
               className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4"
             >
               {filteredSubmissions.length === 0 ? (
-                <div className="col-span-full py-16 text-center text-slate-400 font-medium glass-card rounded-2xl border border-dashed border-purple-200">
-                  Tidak ada karya ditemukan untuk filter ini.
+                <div className="col-span-full py-12 px-6 text-center glass-card rounded-3xl border border-dashed border-purple-200 space-y-4">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <FolderKanban size={28} />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-slate-800 text-base">
+                      {activeProjectFilter !== 'all'
+                        ? 'Belum Ada Karya Untuk Tugas Ini'
+                        : `Belum Ada Karya di ${activeFolderName}`}
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      {activeProjectFilter !== 'all'
+                        ? `Tugas "${data.projects.find((p) => String(p.id).trim() === String(activeProjectFilter).trim())?.title || 'terpilih'}" belum memiliki kiriman karya dari siswa ${activeFolderName}.`
+                        : 'Belum ada kiriman karya yang cocok dengan filter yang dipilih.'}
+                    </p>
+                  </div>
+                  {activeProjectFilter !== 'all' && totalClassSubmissions > 0 && (
+                    <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => setActiveProjectFilter('all')}
+                      >
+                        Lihat Semua Karya {activeFolderName} ({totalClassSubmissions} Karya)
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 filteredSubmissions.map((sub) => {
@@ -666,7 +766,19 @@ export const TeacherGallery = () => {
                     {filteredSubmissions.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-slate-400 text-sm">
-                          Tidak ada karya ditemukan.
+                          <p className="font-bold text-slate-600 mb-1">
+                            {activeProjectFilter !== 'all'
+                              ? `Belum ada karya untuk tugas "${data.projects.find((p) => String(p.id).trim() === String(activeProjectFilter).trim())?.title || 'terpilih'}"`
+                              : `Belum ada karya ditemukan di ${activeFolderName}`}
+                          </p>
+                          {activeProjectFilter !== 'all' && totalClassSubmissions > 0 && (
+                            <button
+                              onClick={() => setActiveProjectFilter('all')}
+                              className="text-xs font-bold text-purple-600 hover:text-purple-700 underline mt-1 cursor-pointer"
+                            >
+                              Tampilkan Semua Karya di {activeFolderName} ({totalClassSubmissions} karya)
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ) : (
@@ -802,24 +914,38 @@ export const TeacherGallery = () => {
               {(() => {
                 const studentsInFolder = data.users.filter((u) => {
                   if (u.role !== 'siswa') return false;
-                  const cls = data.classes.find((c) => c.id === u.classId);
+                  const cls = data.classes.find((c) => String(c.id).trim() === String(u.classId).trim());
                   const norm = cls
                     ? cls.name
                         .toLowerCase()
                         .replace(/kelas/gi, '')
                         .replace(/[^a-z0-9]/g, '')
-                    : '';
+                    : String(u.classId || '')
+                        .toLowerCase()
+                        .replace(/kelas/gi, '')
+                        .replace(/[^a-z0-9]/g, '');
                   return norm === activeNorm;
                 });
 
                 const isProjectActive = activeProjectFilter !== 'all';
+                const activeProjObj = isProjectActive
+                  ? data.projects.find((p) => String(p.id).trim() === String(activeProjectFilter).trim())
+                  : null;
+                const activeProjTitle = activeProjObj ? activeProjObj.title.trim().toLowerCase() : '';
+
                 const submissionsToCheck = isProjectActive
-                  ? data.submissions.filter((s) => s.projectId === activeProjectFilter)
+                  ? data.submissions.filter((s) => {
+                      const subProjId = String(s.projectId || '').trim();
+                      const filterId = String(activeProjectFilter).trim();
+                      return subProjId === filterId || (activeProjTitle && subProjId.toLowerCase() === activeProjTitle);
+                    })
                   : data.submissions;
 
-                const submittedStudentIds = new Set(submissionsToCheck.map((s) => s.studentId));
+                const submittedStudentIds = new Set(
+                  submissionsToCheck.map((s) => String(s.studentId || '').trim().toLowerCase())
+                );
                 const missingStudents = studentsInFolder.filter(
-                  (s) => !submittedStudentIds.has(s.id)
+                  (s) => !submittedStudentIds.has(String(s.id).trim().toLowerCase())
                 );
 
                 return (

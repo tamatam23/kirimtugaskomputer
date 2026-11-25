@@ -42,10 +42,10 @@ export const StudentUpload = ({ setView }) => {
   });
 
   const mySubmissions = (data.submissions || []).filter(
-    (s) => String(s.studentId).trim() === String(user?.id).trim()
+    (s) => String(s.studentId).trim().toLowerCase() === String(user?.id).trim().toLowerCase()
   );
   const availableProjects = activeProjects.filter(
-    (p) => !mySubmissions.some((s) => s.projectId === p.id)
+    (p) => !mySubmissions.some((s) => String(s.projectId).trim() === String(p.id).trim())
   );
 
   useEffect(() => {
@@ -112,6 +112,9 @@ export const StudentUpload = ({ setView }) => {
         fileName,
         fileExt: ext,
         studentId: user?.id,
+        studentName: user?.name || '',
+        classId: user?.classId || '',
+        className: userClassObj?.name || '',
         createdAt: new Date().toISOString(),
       };
       await addDocument('submissions', submissionPayload);
