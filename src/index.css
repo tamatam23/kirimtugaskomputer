@@ -10,13 +10,6 @@
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
   }
-
-  /* Kunci default view laptop/desktop agar presisi 67% di semua browser */
-  @media (min-width: 768px) {
-    body {
-      zoom: 0.67;
-    }
-  }
 }
 
 /* Custom Scrollbar */
