@@ -356,3 +356,42 @@ URL GAS yang ditemukan di git history mengembalikan HTML (bukan JSON), menandaka
 - Sheet `submissions`: 88 baris data, sudah ada karya dari Adskhan, Adreena, Alfatih, Nisrina, dll.
 - Tugas T-Shirt (5A): 13 karya terverifikasi
 - Total karya siswa 5A: 31 karya terverifikasi
+
+
+---
+
+## 17. Penyelidikan Sistem, Eksperimen UI, dan Dokumentasi Sesi Malam (Sesi Nov 25, 2026)
+
+### 1. Klarifikasi Folder Kerja GitHub Desktop
+- **Kondisi:** Di GitHub Desktop terdeteksi dua folder dengan nama yang sama:
+  - `D:\kirimtugaskomputer`
+  - `C:\Users\user\Documents\GitHub\kirimtugaskomputer`
+- **Keputusan:** Folder **`D:\kirimtugaskomputer`** adalah folder **AKTIF / RIIL** tempat seluruh kodingan, build, editor, dan aset berada. Folder di drive C adalah clone lama yang dapat dihapus dari daftar GitHub Desktop.
+
+### 2. Analisis Kasus Upload Siswa "Karakter Panda" & Pengaruh Domain
+- **Kasus:** Siswa mengupload tugas Panda di laptop masing-masing dan terlihat tersimpan di layar siswa, namun tidak muncul sama sekali di layar Guru.
+- **Penyebab Akar (Root Causes):**
+  1. **Kekosongan Endpoint Tulis (GAS Backend URL):**
+     - Aplikasi membaca data melalui jalur GViz (Read-Only) yang berfungsi normal.
+     - Namun untuk menulis data (upload karya), aplikasi memerlukan Web App Google Apps Script (`VITE_GAS_API_URL`).
+     - Karena variabel ini belum diisi, `DataContext.jsx` otomatis mengalihkan penyimpanan ke *offline fallback* (`localStorage` lokal di browser laptop siswa).
+     - Akibatnya: Di laptop siswa tampak tersimpan, namun baris data di sheet `submissions` Google Spreadsheet **tetap 0** dan file tidak pernah terkirim ke Google Drive.
+  2. **Isolasi Domain & Pintasan Microsoft Edge:**
+     - Pintasan di desktop laptop siswa dibuat dari domain lama `kirimtugaskomputer.vercel.app`.
+     - Guru membuka domain baru `kirimtugaskomputer.my.id`.
+     - Berdasarkan *Same-Origin Policy*, data lokal browser pada `.vercel.app` tidak dapat diakses oleh domain `.my.id`.
+- **Solusi yang Diterapkan & Rekomendasi:**
+  - Redirect 301 otomatis dari `.vercel.app` ke `.my.id` sudah terpasang di `vercel.json` dan `index.html`.
+  - Pintasan Edge di desktop siswa diarahkan ke `kirimtugaskomputer.my.id`.
+  - Backend `GAS_Code.gs` perlu di-deploy sebagai Web App ("Anyone") pada Google Sheets agar karya siswa langsung masuk ke Drive & Spreadsheet.
+
+### 3. Eksperimen Skala Tampilan (Zoom 67%) & Pembatalan (Revert)
+- **Permintaan:** Mencoba mengunci tampilan browser di skala 67% secara default saat link dibuka.
+- **Uji Coba:** Diterapkan CSS `zoom: 0.67` pada `body` untuk layar desktop/laptop (`min-width: 768px`).
+- **Evaluasi & Keputusan:** Tampilan visual dinilai tidak optimal oleh pengguna ("aduh jadi jelek kembalikan ke normal saja").
+- **Tindakan:** Seluruh penambahan kode CSS zoom langsung di-revert/dihapus dari `src/index.css`. Tampilan dikembalikan 100% ke ukuran asli bawaan sistem.
+
+### 4. Diagnosis Masalah Koneksi GitHub Desktop (Port 443 Timeout)
+- **Gejala:** Muncul error `Failed to connect to github.com:443 after 21093 ms: Could not connect to server` saat melakukan push via GitHub Desktop.
+- **Diagnosis:** Masalah koneksi internet/Wi-Fi yang mengalami timeout sesaat (RTO 21 detik) saat menghubungi server GitHub, bukan kerusakan kode repository.
+- **Verifikasi:** Tes jaringan `Test-NetConnection -ComputerName github.com -Port 443` menghasilkan `TcpTestSucceeded: True`. Masalah diselesaikan cukup dengan menekan tombol **"Retry push"** di GitHub Desktop.
