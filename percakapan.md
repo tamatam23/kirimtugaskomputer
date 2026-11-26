@@ -1,7 +1,7 @@
 # DOKUMEN PERCAKAPAN & PRD (PROJECT REQUIREMENTS DOCUMENT)
 **Proyek:** Galeri Karya Komputer - Dashboard V20  
 **Lokasi Folder:** `d:\kirimtugaskomputer`  
-**Waktu Penyimpanan:** 20 November 2026, 02:57 WIB  
+**Waktu Penyimpanan:** 27 November 2026, 00:05 WIB  
 **Status Sesi:** Jeda Istirahat (Akan dilanjutkan kembali kapan saja saat pengguna mengetik **"lanjut"** atau memberikan instruksi baru)
 
 ---
@@ -2146,3 +2146,57 @@
 4. **Verifikasi:**
    * Endpoint `/api/sync` merespons HTTP 200 dengan data `deletedSubmissions` yang valid.
    * Server Vite aktif berjalan melayani jaringan di `http://localhost:3000/` dan `http://192.168.0.146:3000/`.
+
+---
+
+## 64. Catatan Pembaruan (Update Tanggal 26 Nov 2026, 23:30 WIB) — Migrasi Penuh ke Supabase (Database Realtime & Supabase Storage)
+1. **Latar Belakang & Masalah:**
+   * Penggunaan Google Apps Script (GAS) Web App terhambat limit otorisasi DriveApp anonim saat puluhan siswa mengunggah karya secara bersamaan di lab komputer, serta tidak mendukung sinkronisasi WebSocket waktu-nyata (*realtime*).
+   * Aplikasi dimigrasikan ke arsitektur **Supabase** (PostgreSQL + Realtime WebSocket + Supabase Storage bucket `karya`) sebagai backend utama, dengan Google Spreadsheet sebagai fallback sekunder.
+2. **Langkah-Langkah Implementasi:**
+   * **Penyusunan Skema Database Supabase ([supabase_schema.sql](file:///d:/kirimtugaskomputer/supabase_schema.sql) & [supabase_fix_rls.sql](file:///d:/kirimtugaskomputer/supabase_fix_rls.sql)):**
+     - Membuat 4 tabel: `classes`, `users`, `projects`, dan `submissions`.
+     - Menonaktifkan RLS (*Row Level Security*) dan mengaktifkan publikasi `supabase_realtime` agar data sinkron seketika saat ada insert/update/delete.
+     - Membuat Storage bucket publik bernama `karya` dengan policy insert, select, dan delete terbuka untuk menampung file Scratch `.sb3`, gambar, dan PDF siswa.
+   * **Klien Supabase ([src/services/supabase.js](file:///d:/kirimtugaskomputer/src/services/supabase.js)):**
+     - Inisialisasi client `@supabase/supabase-js` dengan URL proyek `https://mcyjsubijeadtaedwysk.supabase.co` dan anon key.
+     - Helper `uploadKaryaFile(fileOrDataUrl, fileName)` untuk mengonversi data base64 menjadi biner dan mengunggahnya ke bucket `karya` secara langsung, mengembalikan public URL permanen HTTPS.
+   * **Migrasi Data Historis ([migrate_to_supabase.js](file:///d:/kirimtugaskomputer/migrate_to_supabase.js)):**
+     - Mengambil data dari Google Sheets (GViz) dan menyalin 6 kelas, 112 user (terdeduplikasi), 8 project, dan 88 karya siswa ke tabel Supabase tanpa ada data yang hilang.
+   * **Penyelarasan DataContext ([src/context/DataContext.jsx](file:///d:/kirimtugaskomputer/src/context/DataContext.jsx)):**
+     - Mengutamakan Supabase pada `loadData()`.
+     - Memasang listener Realtime Supabase untuk tabel `submissions`, `projects`, dan `users`.
+     - Helper sanitasi kolom `pickColumns()` untuk memastikan hanya field yang ada di skema Postgres yang dikirimkan.
+   * **Galeri Guru & Unduhan ZIP ([src/components/teacher/TeacherGallery.jsx](file:///d:/kirimtugaskomputer/src/components/teacher/TeacherGallery.jsx)):**
+     - Mendukung pengunduhan dan pembuatan ZIP massal untuk file yang bersumber dari Supabase Storage maupun tautan lama Google Drive.
+3. **Verifikasi:**
+   * Realtime listener teruji aktif (`[Realtime] Status: SUBSCRIBED`).
+   * `npm run build` sukses 100% tanpa error.
+
+---
+
+## 65. Catatan Pembaruan (Update Tanggal 27 Nov 2026, 00:05 WIB) — Fitur Sementara Penyelamat Karya Tersangkut di Laptop Siswa (`LocalRescueModal`)
+1. **Permintaan Pengguna:**
+   * Dibuatkan fitur sementara (hanya beberapa hari, nantinya akan dihilangkan) untuk menyelamatkan karya anak-anak yang sempat tersimpan di penyimpanan lokal laptop/browser mereka masing-masing saat masa transisi offline/Google Sheets.
+   * Ketika anak membuka dashboard, muncul pop-up dan tombol untuk mem-push file project yang tersimpan di lokal browser mereka ke dalam sistem web Supabase guru.
+   * Harus mendukung kedua domain: `kirimtugaskomputer.my.id` dan `kirimtugaskomputer.vercel.app`.
+   * Pop-up otomatis muncul begitu siswa masuk ke Dashboard.
+2. **Solusi & Implementasi:**
+   * **Komponen Pop-up Penyelamat ([src/components/common/LocalRescueModal.jsx](file:///d:/kirimtugaskomputer/src/components/common/LocalRescueModal.jsx)):**
+     - Menampilkan modal interaktif yang mendeteksi berkas lokal yang belum tersinkron di Supabase.
+     - Menampilkan rincian judul karya, nama siswa asli pembuat karya, kelas, dan badge ekstensi berkas (SB3, JPG, PNG, PDF).
+     - Tombol utama **"Kirim Semua Sekarang"** dengan indikator bilah progres (*progress bar*) dan status live (Menunggu, Mengirim, Terkirim, Gagal).
+     - Tombol mandiri **"Kirim"** dan **"Coba Lagi"** per baris karya jika siswa ingin mem-push karya tertentu.
+   * **Otomatis Muncul di Dashboard & Halaman Upload Siswa ([src/App.jsx](file:///d:/kirimtugaskomputer/src/App.jsx)):**
+     - Pop-up otomatis terbuka saat siswa masuk ke Dashboard atau halaman Upload jika di laptop tersebut terdeteksi ada karya tersangkut.
+   * **Banner Pengingat Ramah ([StudentDashboard.jsx](file:///d:/kirimtugaskomputer/src/components/student/StudentDashboard.jsx) & [StudentUpload.jsx](file:///d:/kirimtugaskomputer/src/components/student/StudentUpload.jsx)):**
+     - Jika siswa sempat menekan tombol "Tutup Sementara", banner peringatan tetap tampil di Dashboard dan Halaman Upload bertuliskan: *"Ditemukan X Karya Tersimpan di Laptop Ini"* dilengkapi tombol *"Kirim ke Server Sekarang"* untuk memanggil kembali modal penyelamat kapan saja.
+   * **Dukungan Domain Ganda (.my.id & .vercel.app) ([index.html](file:///d:/kirimtugaskomputer/index.html) & [App.jsx](file:///d:/kirimtugaskomputer/src/App.jsx)):**
+     - Di domain `.vercel.app`, sistem memeriksa `galeri_local_submissions`. Jika masih ada karya lokal, sistem membatalkan redirect dan menampilkan pop-up penyelamat langsung di domain `.vercel.app`.
+     - Setelah semua karya berhasil terkirim ke Supabase, sistem otomatis membersihkan cache lokal dan mengalihkan siswa ke `https://kirimtugaskomputer.my.id`.
+   * **Saklar Sementara Cepat ([DataContext.jsx](file:///d:/kirimtugaskomputer/src/context/DataContext.jsx)):**
+     - Disediakan flag: `export const ENABLE_LOCAL_RESCUE = true;`.
+     - Ketika masa migrasi selesai dalam beberapa hari ke depan, cukup mengubah nilainya menjadi `false` untuk menonaktifkan seluruh pop-up dan banner secara instan tanpa residu.
+3. **Verifikasi:**
+   * Vite production build `npm run build` sukses 100% tanpa error (Exit code 0, 7.30s).
+   * Seluruh kode siap di-commit dan di-push via GitHub Desktop.
