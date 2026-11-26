@@ -4,6 +4,16 @@
 // Kompatibel 100% dengan Standalone React (Vite / Vercel)
 // =======================================================
 
+/**
+ * PENTING: Jalankan fungsi ini SATU KALI di Apps Script Editor
+ * (Klik tombol "Jalankan" / "Run" ▶) untuk memberikan izin Google Drive!
+ */
+function testDriveAccess() {
+  var folder = getUploadFolder();
+  Logger.log('SUKSES! Folder Drive Aktif: ' + folder.getName() + ' (ID: ' + folder.getId() + ')');
+  return 'SUKSES! Folder Drive Aktif: ' + folder.getId();
+}
+
 var SCHEMAS = {
   users:       ['id', 'role', 'name', 'username', 'password', 'classId', 'pin', 'photo', 'createdAt'],
   classes:     ['id', 'name', 'createdAt'],

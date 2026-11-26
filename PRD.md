@@ -395,3 +395,27 @@ URL GAS yang ditemukan di git history mengembalikan HTML (bukan JSON), menandaka
 - **Gejala:** Muncul error `Failed to connect to github.com:443 after 21093 ms: Could not connect to server` saat melakukan push via GitHub Desktop.
 - **Diagnosis:** Masalah koneksi internet/Wi-Fi yang mengalami timeout sesaat (RTO 21 detik) saat menghubungi server GitHub, bukan kerusakan kode repository.
 - **Verifikasi:** Tes jaringan `Test-NetConnection -ComputerName github.com -Port 443` menghasilkan `TcpTestSucceeded: True`. Masalah diselesaikan cukup dengan menekan tombol **"Retry push"** di GitHub Desktop.
+
+
+---
+
+## 18. Integrasi Penuh Backend Google Apps Script & Auto-Sync Cloud (Update Nov 26, 2026)
+
+### 1. Masalah yang Diselesaikan:
+- **Karya Siswa Tidak Sampai ke Google Drive & Spreadsheet:**
+  Karya siswa untuk tugas *"Membuat Karakter Panda"* (Kelas 5) dan *"Membuat Kalkulator with Scratch"* (Kelas 6) tersimpan di memori lokal laptop anak (`localStorage`) namun tidak masuk ke Google Spreadsheet.
+- **Penyebab Akar:**
+  Variabel `VITE_GAS_API_URL` sebelumnya kosong dan fungsi `callGas` melakukan *silent fake success*. Akibatnya data tidak pernah terkirim ke internet/cloud.
+
+### 2. Solusi Permanen yang Diterapkan:
+1. **Pemasangan URL Backend Aktif (`src/services/api.js` & `.env`):**
+   - URL Google Apps Script Web App resmi dihubungkan:  
+     `https://script.google.com/macros/s/AKfycbxyVjg2bHGUEDsXCTQ8_rDO1qxNp-aoLDR2nISfov5TaS7bHXjTlyawf9m0NdcL9Whc/exec`
+   - Dipasang sebagai nilai fallback global di `api.js` sehingga **seluruh laptop siswa di lab komputer otomatis langsung terhubung ke backend tanpa perlu pengaturan manual**.
+2. **Mekanisme Auto-Sync Otomatis (`src/context/DataContext.jsx`):**
+   - Setiap kali aplikasi dibuka di laptop siswa atau laptop guru, sistem memindai memori lokal (`localStorage.getItem('galeri_local_submissions')`).
+   - Jika ditemukan karya yang berstatus belum tersinkron (berisi data raw base64 atau ID lokal), sistem secara otomatis mengunggahnya ke Google Apps Script di latar belakang.
+   - Begitu berhasil diunggah ke Google Drive dan tercatat di Google Spreadsheet, ID lokal diganti dengan ID permanen cloud.
+   - **Dampak Penyelamatan:** Anak-anak atau guru cukup membuka kembali web `kirimtugaskomputer.my.id` di laptop lab, dan seluruh karya yang sebelumnya tertahan di laptop tersebut akan **otomatis terunggah ke Google Drive & Spreadsheet**.
+3. **Otorisasi Google Drive (`GAS_Code.gs`):**
+   - Ditambahkan fungsi `testDriveAccess()` di awal `GAS_Code.gs` untuk mempermudah otorisasi satu kali hak akses Google Drive (`DriveApp`) di Apps Script editor.

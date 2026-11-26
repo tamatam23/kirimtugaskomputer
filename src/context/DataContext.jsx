@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { callGas, DEFAULT_CLASSES } from '../services/api';
 import { useToast } from './ToastContext';
 
@@ -186,7 +186,46 @@ export const DataProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const isSyncingToCloudRef = useRef(false);
   const showToast = useToast();
+
+  const syncLocalSubmissionsToCloud = async (unSyncedList) => {
+    if (!unSyncedList || unSyncedList.length === 0 || isSyncingToCloudRef.current) return;
+    isSyncingToCloudRef.current = true;
+
+    try {
+      console.log(`[AutoSync] Mendeteksi ${unSyncedList.length} karya lokal yang belum tersinkron ke cloud...`);
+      for (const item of unSyncedList) {
+        try {
+          const { id: oldLocalId, ...payload } = item;
+          console.log('[AutoSync] Mengunggah karya:', payload.title || 'Tanpa Judul');
+          const remoteId = await callGas('addDocument', 'submissions', payload);
+          if (remoteId && !String(remoteId).startsWith('ok-')) {
+            console.log('[AutoSync] Sukses tersinkron ke Google Drive & Sheets! Remote ID:', remoteId);
+            const currentStored = getStoredSubmissions().filter(
+              (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
+            );
+            const updatedDoc = { ...payload, id: remoteId };
+            localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify([updatedDoc, ...currentStored]));
+            inMemoryLocalSubs = [updatedDoc, ...inMemoryLocalSubs.filter((s) => String(s.id) !== String(oldLocalId))];
+            
+            // Perbarui state secara reaktif
+            setData((prev) => ({
+              ...prev,
+              submissions: [
+                updatedDoc,
+                ...(prev.submissions || []).filter((s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId))
+              ]
+            }));
+          }
+        } catch (subErr) {
+          console.warn('[AutoSync] Gagal menyinkronkan karya:', item.title, subErr);
+        }
+      }
+    } finally {
+      isSyncingToCloudRef.current = false;
+    }
+  };
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -296,6 +335,19 @@ export const DataProvider = ({ children }) => {
           projects: mergedProjects,
           submissions: mergedSubmissions,
         });
+
+        // Auto-Sync: Deteksi karya siswa yang tersimpan di memori lokal laptop namun belum terkirim ke Google Drive/Sheets
+        const unSyncedSubs = localSubs.filter((s) => {
+          if (!s || deletedSubIds.has(String(s.id))) return false;
+          const notInRemote = !remoteIds.has(String(s.id));
+          const hasRawFile = s.fileData && String(s.fileData).startsWith('data:');
+          const isLocalId = String(s.id).startsWith('ok-') || String(s.id).startsWith('doc-') || String(s.id).length < 20;
+          return notInRemote && (hasRawFile || isLocalId);
+        });
+
+        if (unSyncedSubs.length > 0) {
+          syncLocalSubmissionsToCloud(unSyncedSubs);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);

@@ -2,7 +2,7 @@
 // Sheet ID: 1xqVsKnSEiasss2f_o7FY-F7cZy3Pyz5cMp-4J1tG6RM
 
 const SPREADSHEET_ID = '1xqVsKnSEiasss2f_o7FY-F7cZy3Pyz5cMp-4J1tG6RM';
-const DEFAULT_API_URL = import.meta.env.VITE_GAS_API_URL || '';
+const DEFAULT_API_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/AKfycbxyVjg2bHGUEDsXCTQ8_rDO1qxNp-aoLDR2nISfov5TaS7bHXjTlyawf9m0NdcL9Whc/exec';
 
 export const DEFAULT_CLASSES = [
   { id: 'cc93f692-df1a-4727-a093-2c7718d68778', name: '4A', createdAt: '2026-11-07T14:24:59.505Z' },
@@ -14,7 +14,12 @@ export const DEFAULT_CLASSES = [
 ];
 
 export const getApiUrl = () => {
-  return localStorage.getItem('gas_api_url') || DEFAULT_API_URL;
+  const custom = localStorage.getItem('gas_api_url');
+  if (custom && custom.includes('AKfycbwwqWkZnEF7lKSaxLVADZY6HY3nY74BOXXV4_mj5FH1Z7wk0iJtdKI_HqDQHKT6nPWu')) {
+    localStorage.removeItem('gas_api_url');
+    return DEFAULT_API_URL;
+  }
+  return custom || DEFAULT_API_URL;
 };
 
 export const setApiUrl = (url) => {
