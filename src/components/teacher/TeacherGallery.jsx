@@ -211,17 +211,29 @@ export const TeacherGallery = () => {
     setIsDownloading(true);
     showToast('Menyiapkan file .sb3 Scratch...');
     try {
-      const base64 = await callGas('getFileBase64ForDownload', url);
-      if (!base64) throw new Error('Gagal mengambil data');
+      const safeName = `${studentName.replace(/[^a-zA-Z0-9]/g, '_')}_Project.sb3`;
+      if (url.startsWith('data:')) {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        saveAs(blob, safeName);
+      } else if (url.startsWith('http') && !url.includes('drive.google.com')) {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Gagal mengunduh file dari server');
+        const blob = await res.blob();
+        saveAs(blob, safeName);
+      } else {
+        const base64 = await callGas('getFileBase64ForDownload', url);
+        if (!base64) throw new Error('Gagal mengambil data');
 
-      const binaryString = atob(base64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const blob = new Blob([bytes], { type: 'application/x-scratch-sb3' });
+        saveAs(blob, safeName);
       }
-
-      const blob = new Blob([bytes], { type: 'application/x-scratch-sb3' });
-      saveAs(blob, `${studentName.replace(/[^a-zA-Z0-9]/g, '_')}_Project.sb3`);
       showToast('Download .sb3 selesai');
     } catch {
       showToast('Gagal mendownload file Scratch', 'error');
@@ -245,17 +257,25 @@ export const TeacherGallery = () => {
         const student = data.users.find((u) => u.id === sub.studentId);
         const sName = (student?.name || 'Siswa').replace(/[^a-zA-Z0-9]/g, '_');
         const pTitle = (sub.title || 'Karya').replace(/[^a-zA-Z0-9]/g, '_');
+        const ext = sub.fileExt || 'jpg';
 
         if (sub.fileData && sub.fileData.includes('drive.google.com')) {
           const base64Str = await callGas('getFileBase64ForDownload', sub.fileData);
           if (base64Str) {
-            let ext = sub.fileExt || 'jpg';
             root.file(`${sName}_${pTitle}.${ext}`, base64Str, { base64: true });
           }
+        } else if (sub.fileData && sub.fileData.startsWith('http')) {
+          try {
+            const res = await fetch(sub.fileData);
+            if (res.ok) {
+              const blob = await res.blob();
+              root.file(`${sName}_${pTitle}.${ext}`, blob);
+            }
+          } catch {}
         } else if (sub.fileData && sub.fileData.startsWith('data:')) {
           const base64Parts = sub.fileData.split(',');
           if (base64Parts.length === 2) {
-            root.file(`${sName}_${pTitle}.jpg`, base64Parts[1], { base64: true });
+            root.file(`${sName}_${pTitle}.${ext}`, base64Parts[1], { base64: true });
           }
         }
       }

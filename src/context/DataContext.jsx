@@ -115,6 +115,28 @@ const persistDeletedProjectId = (id) => {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const TABLE_COLUMNS = {
+  classes: ['id', 'name', 'createdAt'],
+  users: ['id', 'role', 'name', 'username', 'password', 'classId', 'pin', 'photo', 'createdAt'],
+  projects: ['id', 'title', 'desc', 'classId', 'deadline', 'status', 'targetStudents', 'createdAt'],
+  submissions: ['id', 'projectId', 'studentId', 'title', 'fileData', 'fileExt', 'nilai', 'catatan', 'feedback', 'studentName', 'className', 'createdAt'],
+};
+
+const pickColumns = (colName, obj) => {
+  const allowed = TABLE_COLUMNS[colName];
+  if (!allowed) return obj;
+  const cleaned = {};
+  for (const key of allowed) {
+    if (obj[key] !== undefined) cleaned[key] = obj[key];
+  }
+  return cleaned;
+};
+
+const generateDocId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : 'doc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+
 const normalizeProject = (p) => {
   let classId = p.classId || p.class_id || [];
   if (typeof classId === 'string') {
@@ -157,7 +179,7 @@ export const DataProvider = ({ children }) => {
           supabase.from('classes').select('*'),
           supabase.from('users').select('*'),
           supabase.from('projects').select('*'),
-          supabase.from('submissions').select('*'),
+          supabase.from('submissions').select('*').order('createdAt', { ascending: false }),
         ]);
 
         // Only use Supabase data if at least ONE table has data or no error
@@ -280,8 +302,17 @@ export const DataProvider = ({ children }) => {
             storedFileData = await uploadKaryaFile(fileData, payload.fileName || `karya.${payload.fileExt || 'bin'}`);
           }
 
-          const newRow = { ...payload, fileData: storedFileData };
-          const { data: inserted, error: insErr } = await supabase.from('submissions').insert(newRow).select();
+          const newId =
+            oldLocalId && !String(oldLocalId).startsWith('ok-') && !String(oldLocalId).startsWith('doc-') && String(oldLocalId).length >= 20
+              ? String(oldLocalId)
+              : generateDocId();
+          const newRow = pickColumns('submissions', {
+            ...payload,
+            id: newId,
+            fileData: storedFileData,
+            createdAt: payload.createdAt || new Date().toISOString(),
+          });
+          const { data: inserted, error: insErr } = await supabase.from('submissions').upsert(newRow).select();
           if (!insErr && inserted && inserted[0]) {
             const remoteId = inserted[0].id || oldLocalId;
             console.log('[AutoSync] Sukses tersinkron ke Supabase! ID:', remoteId);
@@ -375,13 +406,14 @@ export const DataProvider = ({ children }) => {
 
   // ── CRUD: addDocument ────────────────────────────────────────────────────────
   const addDocument = async (colName, docData) => {
-    const fallbackId =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : 'doc-' + Date.now();
+    const fallbackId = generateDocId();
 
     let remoteId = null;
-    let finalDoc = { ...docData };
+    let finalDoc = {
+      ...docData,
+      id: docData.id || fallbackId,
+      createdAt: docData.createdAt || new Date().toISOString(),
+    };
 
     try {
       // For submissions, upload file to Supabase Storage first
@@ -390,7 +422,8 @@ export const DataProvider = ({ children }) => {
         finalDoc = { ...finalDoc, fileData: uploadedUrl };
       }
 
-      const { data: inserted, error } = await supabase.from(colName).insert(finalDoc).select();
+      const dbPayload = pickColumns(colName, finalDoc);
+      const { data: inserted, error } = await supabase.from(colName).insert(dbPayload).select();
       if (error) {
         console.warn(`[Supabase] Insert ${colName} failed:`, error.message);
         // Fallback to GAS
@@ -399,7 +432,7 @@ export const DataProvider = ({ children }) => {
         } catch {}
       } else if (inserted && inserted[0]) {
         remoteId = inserted[0].id || fallbackId;
-        finalDoc = { ...finalDoc, id: remoteId };
+        finalDoc = { ...finalDoc, ...inserted[0], id: remoteId };
       }
     } catch (err) {
       console.warn(`[DataContext] addDocument ${colName} error:`, err.message);
@@ -408,8 +441,8 @@ export const DataProvider = ({ children }) => {
       } catch {}
     }
 
-    const finalId = remoteId || fallbackId;
-    const newDoc = { id: finalId, ...finalDoc, createdAt: finalDoc.createdAt || new Date().toISOString() };
+    const finalId = remoteId || finalDoc.id || fallbackId;
+    const newDoc = { ...finalDoc, id: finalId };
 
     setData((prev) => ({
       ...prev,
@@ -425,8 +458,17 @@ export const DataProvider = ({ children }) => {
 
   // ── CRUD: updateDocument ─────────────────────────────────────────────────────
   const updateDocument = async (colName, id, updateData) => {
+    let finalUpdate = { ...updateData };
+
     try {
-      const { error } = await supabase.from(colName).update(updateData).eq('id', id);
+      // If updating submission with new file data URL, upload to Supabase Storage first
+      if (colName === 'submissions' && finalUpdate.fileData && String(finalUpdate.fileData).startsWith('data:')) {
+        const uploadedUrl = await uploadKaryaFile(finalUpdate.fileData, finalUpdate.fileName || `karya_revisi.${finalUpdate.fileExt || 'bin'}`);
+        finalUpdate = { ...finalUpdate, fileData: uploadedUrl };
+      }
+
+      const dbPayload = pickColumns(colName, finalUpdate);
+      const { error } = await supabase.from(colName).update(dbPayload).eq('id', id);
       if (error) {
         console.warn(`[Supabase] Update ${colName} failed:`, error.message);
         try { await callGas('updateDocument', colName, id, updateData); } catch {}
@@ -438,7 +480,7 @@ export const DataProvider = ({ children }) => {
 
     setData((prev) => {
       const updatedList = (prev[colName] || []).map((item) =>
-        String(item.id) === String(id) ? { ...item, ...updateData } : item
+        String(item.id) === String(id) ? { ...item, ...finalUpdate } : item
       );
       if (colName === 'submissions') {
         const target = updatedList.find((item) => String(item.id) === String(id));

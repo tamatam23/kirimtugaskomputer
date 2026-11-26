@@ -419,3 +419,26 @@ URL GAS yang ditemukan di git history mengembalikan HTML (bukan JSON), menandaka
    - **Dampak Penyelamatan:** Anak-anak atau guru cukup membuka kembali web `kirimtugaskomputer.my.id` di laptop lab, dan seluruh karya yang sebelumnya tertahan di laptop tersebut akan **otomatis terunggah ke Google Drive & Spreadsheet**.
 3. **Otorisasi Google Drive (`GAS_Code.gs`):**
    - Ditambahkan fungsi `testDriveAccess()` di awal `GAS_Code.gs` untuk mempermudah otorisasi satu kali hak akses Google Drive (`DriveApp`) di Apps Script editor.
+
+---
+
+## 19. Migrasi Penuh ke Arsitektur Supabase Realtime & Storage (Update Nov 26, 2026)
+
+### 1. Latar Belakang Migrasi:
+- Google Apps Script Web App terhambat izin `DriveApp` anonim saat siswa mengunggah karya sekaligus dan tidak mendukung sinkronisasi WebSocket waktu-nyata.
+- Aplikasi dimigrasikan ke **Supabase** (PostgreSQL + Realtime WebSocket + Supabase Storage bucket `karya`) dengan GAS sebagai fallback cadangan saja.
+
+### 2. Komponen Arsitektur Baru:
+- **Database Schema (`supabase_schema.sql` & `supabase_fix_rls.sql`):**
+  - 4 tabel utama: `classes`, `users`, `projects`, `submissions` dengan policy RLS terbuka untuk `anon` & `authenticated`, serta publikasi `supabase_realtime` aktif.
+  - Storage bucket publik `karya` untuk menyimpan berkas `.sb3`, `.jpg`, `.png`, dan `.pdf` secara langsung via HTTPS.
+- **Supabase Client (`src/services/supabase.js`):**
+  - Menginisialisasi `@supabase/supabase-js` client dengan Realtime `eventsPerSecond: 10` dan helper `uploadKaryaFile()` untuk konversi base64 data URL ke biner dan upload ke bucket `karya`.
+- **Realtime Sync Layer (`src/context/DataContext.jsx`):**
+  - Membaca data utama langsung dari Supabase (`getInitialData` fallback ke GAS hanya jika Supabase kosong/error).
+  - Berlangganan kanal Realtime `public:submissions`, `projects`, dan `users` agar kiriman baru, nilai guru, dan revisi langsung tampil di layar tanpa reload halaman.
+  - Sanitasi payload kolom (`pickColumns`) dan generate ID otomatis sebelum insert agar bebas mismatch skema Postgres.
+- **Unduhan Berkas (`src/components/teacher/TeacherGallery.jsx`):**
+  - Mendukung fetch langsung file `.sb3` dan pembungkusan ZIP dari URL publik Supabase Storage maupun link Google Drive lama.
+- **Migrasi Data Lama (`migrate_to_supabase.js`):**
+  - Seluruh data historis (6 kelas, 112 user setelah deduplikasi, 8 project, 88 submission) telah dimigrasikan dan diverifikasi di Supabase.
