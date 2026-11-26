@@ -5,8 +5,9 @@ import {
   CheckCircle2,
   FileCode,
   FileText,
+  Send,
 } from 'lucide-react';
-import { useData } from '../../context/DataContext';
+import { useData, ENABLE_LOCAL_RESCUE } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Button } from '../common/Button';
@@ -16,8 +17,8 @@ import { extFromMime, isProjectForStudent } from '../../utils/helpers';
 import { springBounce, fadeInScale, popCard } from '../../utils/motion';
 import { KineticText, KineticLine } from '../common/MotionTypography';
 
-export const StudentUpload = ({ setView }) => {
-  const { data, addDocument } = useData();
+export const StudentUpload = ({ setView, onOpenRescue }) => {
+  const { data, addDocument, pendingLocalSubmissions = [] } = useData();
   const { user } = useAuth();
   const showToast = useToast();
 
@@ -166,22 +167,54 @@ export const StudentUpload = ({ setView }) => {
     animFrameRef.current = requestAnimationFrame(tick);
   };
 
+  const rescueBannerNode =
+    ENABLE_LOCAL_RESCUE && pendingLocalSubmissions.length > 0 ? (
+      <div className="rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-amber-500 text-white rounded-2xl shrink-0 shadow">
+            <UploadCloud size={22} />
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+              <span>Ada {pendingLocalSubmissions.length} karya di laptop ini yang belum terkirim</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white">
+                Offline
+              </span>
+            </h4>
+            <p className="text-xs text-slate-600 mt-0.5">
+              File tersimpan di browser laptop dan belum tersimpan di database guru.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={onOpenRescue}
+          className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2.5 px-4 shadow-sm"
+          icon={<Send size={15} />}
+        >
+          Kirim Sekarang
+        </Button>
+      </div>
+    ) : null;
+
   if (availableProjects.length === 0) {
     return (
-      <Card className="max-w-lg mx-auto py-12 px-6 text-center border-purple-100">
-        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center mb-4 shadow-sm">
-          <CheckCircle2 size={36} />
-        </div>
-        <KineticText
-          text="Semua Tugas Sudah Dikumpul!"
-          as="h3"
-          className="text-xl font-extrabold text-slate-800 mb-2 block"
-        />
-        <KineticLine as="p" delay={0.06} className="text-slate-500 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
-          Hebat sekali! Kamu sudah menyelesaikan semua tugas aktif saat ini.
-        </KineticLine>
-        <Button onClick={() => setView('gallery')}>Lihat Karyaku</Button>
-      </Card>
+      <div className="max-w-lg mx-auto space-y-4">
+        {rescueBannerNode}
+        <Card className="py-12 px-6 text-center border-purple-100">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center mb-4 shadow-sm">
+            <CheckCircle2 size={36} />
+          </div>
+          <KineticText
+            text="Semua Tugas Sudah Dikumpul!"
+            as="h3"
+            className="text-xl font-extrabold text-slate-800 mb-2 block"
+          />
+          <KineticLine as="p" delay={0.06} className="text-slate-500 text-sm max-w-sm mx-auto mb-6 leading-relaxed">
+            Hebat sekali! Kamu sudah menyelesaikan semua tugas aktif saat ini.
+          </KineticLine>
+          <Button onClick={() => setView('gallery')}>Lihat Karyaku</Button>
+        </Card>
+      </div>
     );
   }
 
@@ -192,6 +225,7 @@ export const StudentUpload = ({ setView }) => {
       variants={fadeInScale}
       className="max-w-2xl mx-auto space-y-6"
     >
+      {rescueBannerNode}
       <div className="text-center">
         <KineticText
           text="Upload Karya Baru"

@@ -10,9 +10,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Fredoka:wght@500;600;700;800&family=Kalam:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="/logo.png" />
     <script>
-      // Otomatis alihkan siswa/guru jika membuka domain .vercel.app ke domain utama kirimtugaskomputer.my.id
+      // Jika membuka domain .vercel.app, cek dulu apakah ada karya tersangkut di localStorage browser ini.
+      // Jika tidak ada karya tersangkut, langsung alihkan ke domain utama kirimtugaskomputer.my.id.
       if (window.location.hostname.endsWith('.vercel.app')) {
-        window.location.replace('https://kirimtugaskomputer.my.id' + window.location.pathname + window.location.search);
+        try {
+          var rawLocalSubs = localStorage.getItem('galeri_local_submissions');
+          var parsedLocalSubs = rawLocalSubs ? JSON.parse(rawLocalSubs) : [];
+          if (!Array.isArray(parsedLocalSubs) || parsedLocalSubs.length === 0) {
+            window.location.replace('https://kirimtugaskomputer.my.id' + window.location.pathname + window.location.search);
+          }
+        } catch (e) {
+          window.location.replace('https://kirimtugaskomputer.my.id' + window.location.pathname + window.location.search);
+        }
       }
     </script>
   </head>

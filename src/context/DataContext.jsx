@@ -3,6 +3,10 @@ import { supabase, uploadKaryaFile } from '../services/supabase';
 import { callGas, DEFAULT_CLASSES } from '../services/api';
 import { useToast } from './ToastContext';
 
+// Saklar fitur sementara: Popup penyelamat karya tersangkut di penyimpanan lokal laptop
+// Ubah menjadi false (atau hapus komponen LocalRescueModal) setelah periode migrasi selesai
+export const ENABLE_LOCAL_RESCUE = true;
+
 const DataContext = createContext(null);
 
 const LOCAL_CLASSES_KEY = 'galeri_cached_classes';
@@ -161,8 +165,51 @@ export const DataProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [supabaseReady, setSupabaseReady] = useState(false);
+  const [pendingLocalSubmissions, setPendingLocalSubmissions] = useState([]);
   const isSyncingToCloudRef = useRef(false);
   const realtimeChannelRef = useRef(null);
+
+  // Hitung daftar karya lokal yang belum ada di database Supabase
+  const computePendingLocal = (remoteSubs, allUsers, allClasses, allProjects) => {
+    const deletedSubIds = getDeletedSubmissionIds();
+    const localSubs = getStoredSubmissions();
+    const remoteSubIds = new Set(remoteSubs.map((s) => String(s.id)));
+    const remotePairs = new Set(
+      remoteSubs
+        .filter((s) => s.studentId && s.projectId)
+        .map((s) => `${String(s.studentId).trim()}::${String(s.projectId).trim()}`)
+    );
+
+    const seenPairs = new Set();
+    const pending = [];
+
+    for (const s of localSubs) {
+      if (!s || deletedSubIds.has(String(s.id))) continue;
+      if (!s.fileData || String(s.fileData).trim().length === 0) continue;
+      if (remoteSubIds.has(String(s.id))) continue;
+
+      const pairKey =
+        s.studentId && s.projectId
+          ? `${String(s.studentId).trim()}::${String(s.projectId).trim()}`
+          : '';
+      if (pairKey && (remotePairs.has(pairKey) || seenPairs.has(pairKey))) continue;
+      if (pairKey) seenPairs.add(pairKey);
+
+      const matchedUser = allUsers.find((u) => String(u.id) === String(s.studentId));
+      const matchedClass = allClasses.find((c) => String(c.id) === String(matchedUser?.classId || s.classId));
+      const matchedProject = allProjects.find((p) => String(p.id) === String(s.projectId));
+
+      pending.push({
+        ...s,
+        studentName: s.studentName || matchedUser?.name || '',
+        className: s.className || matchedClass?.name || '',
+        projectTitle: matchedProject?.title || '',
+      });
+    }
+
+    return pending;
+  };
 
   // ── Load from Supabase (primary) with GAS fallback ──────────────────────────
   const loadData = useCallback(async (silent = false) => {
@@ -266,16 +313,14 @@ export const DataProvider = ({ children }) => {
         submissions: mergedSubmissions,
       });
 
-      // Auto-sync locally-stuck submissions to Supabase
-      const unSyncedSubs = localSubs.filter((s) => {
-        if (!s || deletedSubIds.has(String(s.id))) return false;
-        const notInRemote = !remoteSubIds.has(String(s.id));
-        const hasRawFile = s.fileData && String(s.fileData).startsWith('data:');
-        const isLocalId = String(s.id).startsWith('ok-') || String(s.id).startsWith('doc-') || String(s.id).length < 20;
-        return notInRemote && (hasRawFile || isLocalId);
-      });
-      if (unSyncedSubs.length > 0 && !isSyncingToCloudRef.current) {
-        syncLocalSubmissionsToSupabase(unSyncedSubs);
+      if (fromSupabase) {
+        setSupabaseReady(true);
+        const pendingRescue = computePendingLocal(remoteSubs, mergedUsers, finalClasses, mergedProjects);
+        setPendingLocalSubmissions(pendingRescue);
+
+        if (!ENABLE_LOCAL_RESCUE && pendingRescue.length > 0 && !isSyncingToCloudRef.current) {
+          syncLocalSubmissionsToSupabase(pendingRescue);
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -286,6 +331,75 @@ export const DataProvider = ({ children }) => {
     else setIsSyncing(false);
   }, []); // eslint-disable-line
 
+  // ── Upload 1 karya lokal ke Supabase Storage + DB (dipakai popup rescue & auto-sync) ──
+  const pushSingleLocalSubmission = async (item) => {
+    const { id: oldLocalId, fileData, projectTitle, ...payload } = item;
+
+    let storedFileData = fileData || '';
+    if (storedFileData.startsWith('data:')) {
+      storedFileData = await uploadKaryaFile(
+        fileData,
+        payload.fileName || `karya.${payload.fileExt || 'bin'}`
+      );
+    }
+
+    const isValidRemoteId =
+      oldLocalId &&
+      !String(oldLocalId).startsWith('ok-') &&
+      !String(oldLocalId).startsWith('doc-') &&
+      String(oldLocalId).length >= 20;
+    const newId = isValidRemoteId ? String(oldLocalId) : generateDocId();
+
+    const dbRow = pickColumns('submissions', {
+      ...payload,
+      id: newId,
+      fileData: storedFileData,
+      createdAt: payload.createdAt || new Date().toISOString(),
+    });
+
+    const { data: inserted, error: insErr } = await supabase
+      .from('submissions')
+      .upsert(dbRow, { onConflict: 'id' })
+      .select();
+
+    if (insErr || !inserted || !inserted[0]) {
+      throw new Error(insErr?.message || 'Gagal menyimpan karya ke database Supabase');
+    }
+
+    const remoteId = inserted[0].id || newId;
+    const updatedDoc = { ...inserted[0], ...dbRow, id: remoteId };
+
+    // Perbarui cache lokal agar item tidak muncul lagi di popup rescue
+    const currentStored = getStoredSubmissions().filter(
+      (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
+    );
+    try {
+      localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify([updatedDoc, ...currentStored]));
+    } catch {}
+    inMemoryLocalSubs = [
+      updatedDoc,
+      ...inMemoryLocalSubs.filter(
+        (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
+      ),
+    ];
+
+    setData((prev) => ({
+      ...prev,
+      submissions: [
+        updatedDoc,
+        ...(prev.submissions || []).filter(
+          (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
+        ),
+      ],
+    }));
+
+    setPendingLocalSubmissions((prev) =>
+      prev.filter((s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId))
+    );
+
+    return updatedDoc;
+  };
+
   // ── Auto-sync stuck local submissions to Supabase ───────────────────────────
   const syncLocalSubmissionsToSupabase = async (unSynced) => {
     if (isSyncingToCloudRef.current) return;
@@ -293,43 +407,9 @@ export const DataProvider = ({ children }) => {
     try {
       for (const item of unSynced) {
         try {
-          const { id: oldLocalId, fileData, ...payload } = item;
-          console.log('[AutoSync] Mengunggah ke Supabase:', payload.title || 'Tanpa Judul');
-
-          // If fileData is a base64 DataURL, upload to storage
-          let storedFileData = fileData || '';
-          if (storedFileData.startsWith('data:')) {
-            storedFileData = await uploadKaryaFile(fileData, payload.fileName || `karya.${payload.fileExt || 'bin'}`);
-          }
-
-          const newId =
-            oldLocalId && !String(oldLocalId).startsWith('ok-') && !String(oldLocalId).startsWith('doc-') && String(oldLocalId).length >= 20
-              ? String(oldLocalId)
-              : generateDocId();
-          const newRow = pickColumns('submissions', {
-            ...payload,
-            id: newId,
-            fileData: storedFileData,
-            createdAt: payload.createdAt || new Date().toISOString(),
-          });
-          const { data: inserted, error: insErr } = await supabase.from('submissions').upsert(newRow).select();
-          if (!insErr && inserted && inserted[0]) {
-            const remoteId = inserted[0].id || oldLocalId;
-            console.log('[AutoSync] Sukses tersinkron ke Supabase! ID:', remoteId);
-            const updatedDoc = { ...newRow, id: remoteId };
-            const currentStored = getStoredSubmissions().filter(
-              (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
-            );
-            localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify([updatedDoc, ...currentStored]));
-            inMemoryLocalSubs = [updatedDoc, ...inMemoryLocalSubs.filter((s) => String(s.id) !== String(oldLocalId))];
-            setData((prev) => ({
-              ...prev,
-              submissions: [
-                updatedDoc,
-                ...(prev.submissions || []).filter((s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)),
-              ],
-            }));
-          }
+          console.log('[AutoSync] Mengunggah ke Supabase:', item.title || 'Tanpa Judul');
+          const synced = await pushSingleLocalSubmission(item);
+          console.log('[AutoSync] Sukses tersinkron ke Supabase! ID:', synced.id);
         } catch (subErr) {
           console.warn('[AutoSync] Gagal menyinkronkan karya:', item.title, subErr);
         }
@@ -568,6 +648,9 @@ export const DataProvider = ({ children }) => {
         data,
         loading,
         isSyncing,
+        supabaseReady,
+        pendingLocalSubmissions,
+        pushSingleLocalSubmission,
         loadData,
         addDocument,
         updateDocument,

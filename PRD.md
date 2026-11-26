@@ -442,3 +442,20 @@ URL GAS yang ditemukan di git history mengembalikan HTML (bukan JSON), menandaka
   - Mendukung fetch langsung file `.sb3` dan pembungkusan ZIP dari URL publik Supabase Storage maupun link Google Drive lama.
 - **Migrasi Data Lama (`migrate_to_supabase.js`):**
   - Seluruh data historis (6 kelas, 112 user setelah deduplikasi, 8 project, 88 submission) telah dimigrasikan dan diverifikasi di Supabase.
+
+---
+
+## 20. Fitur Sementara Penyelamat Karya Lokal (`LocalRescueModal`) (Update Nov 26, 2026)
+
+### 1. Tujuan (Bersifat Sementara ±1 Minggu):
+- Menyelamatkan seluruh file project siswa yang sebelumnya sempat tersangkut di penyimpanan lokal browser (`localStorage` key `galeri_local_submissions`) di laptop-laptop lab komputer, baik yang diunggah melalui `kirimtugaskomputer.my.id` maupun domain lama `kirimtugaskomputer.vercel.app`.
+
+### 2. Cara Kerja:
+- **Otomatis Muncul di Dashboard Siswa:** Saat siswa masuk ke halaman Dashboard (`activeMenu === 'dashboard'`) atau halaman Upload (`activeMenu === 'upload'`), `DataContext` mencocokkan isi `galeri_local_submissions` laptop tersebut dengan data live di Supabase.
+- Jika ditemukan karya yang belum masuk Supabase, `LocalRescueModal` otomatis terbuka menampilkan daftar karya tersebut dengan status per file (Menunggu, Mengirim, Terkirim, Gagal), tombol **"Kirim"** mandiri per karya, serta tombol utama **"Kirim Semua Sekarang"** untuk mengunggah semuanya ke Supabase Storage bucket `karya` dan tabel `submissions`.
+- **Banner Pengingat di Dashboard & Halaman Upload:** Jika siswa sempat menutup popup ("Tutup Sementara"), tetap terdapat banner peringatan ramah di bagian atas Dashboard dan halaman Upload bertuliskan *"Ditemukan X Karya Tersimpan di Laptop Ini"* dengan tombol *"Kirim ke Server Sekarang"* untuk memunculkan kembali modal kapan saja.
+- **Dukungan Domain Lama (`.vercel.app`):** Redirect edge di `vercel.json` dimatikan sementara dan ditangani oleh `index.html` + `App.jsx`: domain `.vercel.app` hanya langsung me-redirect ke `.my.id` apabila `galeri_local_submissions` kosong; jika ada karya tersangkut, modal penyelamat muncul langsung di `.vercel.app` sebelum mengalihkan ke `.my.id`.
+
+### 3. Cara Menutup Fitur Ini Setelah Periode Migrasi Selesai:
+1. Ubah `ENABLE_LOCAL_RESCUE = false` di `src/context/DataContext.jsx` (atau hapus `src/components/common/LocalRescueModal.jsx`).
+2. Kembalikan rule `"redirects"` 301 di `vercel.json` dan `index.html`.

@@ -12,8 +12,9 @@ import {
   X,
   ArrowRight,
   Star,
+  Send,
 } from 'lucide-react';
-import { useData } from '../../context/DataContext';
+import { useData, ENABLE_LOCAL_RESCUE } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { StatsCard } from '../common/StatsCard';
@@ -23,8 +24,8 @@ import { compressAvatar, driveThumb, getDriveId, isProjectForStudent } from '../
 import { springBounce, staggerContainer, staggerCards, popCard, fadeInScale } from '../../utils/motion';
 import { KineticText, KineticLine, KineticNumber } from '../common/MotionTypography';
 
-export const StudentDashboard = ({ setView }) => {
-  const { data, updateDocument } = useData();
+export const StudentDashboard = ({ setView, onOpenRescue }) => {
+  const { data, updateDocument, pendingLocalSubmissions = [] } = useData();
   const { user, updateUser } = useAuth();
   const showToast = useToast();
   const [photoLoading, setPhotoLoading] = useState(false);
@@ -193,6 +194,38 @@ export const StudentDashboard = ({ setView }) => {
           </div>
         </div>
       </motion.div>
+
+      {/* Banner Penyelamat Karya Tersangkut di Laptop (Fitur Sementara) */}
+      {ENABLE_LOCAL_RESCUE && pendingLocalSubmissions.length > 0 && (
+        <motion.div
+          variants={fadeInScale}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-500/40 p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md animate-pulse">
+              <UploadCloud size={24} />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+                <span>Ditemukan {pendingLocalSubmissions.length} Karya Tersimpan di Laptop Ini</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white">
+                  Perlu Dikirim
+                </span>
+              </h4>
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                Karya ini tersimpan di penyimpanan browser laptop dan belum masuk ke server Guru.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={onOpenRescue}
+            className="w-full sm:w-auto shrink-0 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-extrabold text-xs sm:text-sm py-2.5 px-5 shadow-md border-0"
+            icon={<Send size={16} />}
+          >
+            Kirim ke Server Sekarang
+          </Button>
+        </motion.div>
+      )}
 
       {/* 3 Stats Cards with Staggered Punchy Pop (Sequential ripple) */}
       <motion.div
