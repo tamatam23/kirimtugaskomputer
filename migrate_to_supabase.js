@@ -125,7 +125,12 @@ async function runMigration() {
     photo: u.photo || '',
     createdAt: u.createdAt || new Date().toISOString()
   }));
-  await insertSupabase('users', formattedUsers);
+  // Deduplicate users by id before inserting
+  const uniqueUsersMap = new Map();
+  for (const u of formattedUsers) {
+    if (!uniqueUsersMap.has(u.id)) uniqueUsersMap.set(u.id, u);
+  }
+  await insertSupabase('users', Array.from(uniqueUsersMap.values()));
 
   // 3. Projects
   const formattedProjects = rawProjects.map(p => {
