@@ -1,10 +1,58 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import { supabase, uploadKaryaFile } from '../services/supabase';
 import { callGas, DEFAULT_CLASSES } from '../services/api';
 import { useToast } from './ToastContext';
 
 const DataContext = createContext(null);
 
 const LOCAL_CLASSES_KEY = 'galeri_cached_classes';
+const LOCAL_SUBS_KEY = 'galeri_local_submissions';
+const LOCAL_DELETED_SUBS_KEY = 'galeri_deleted_submissions';
+const LOCAL_USERS_KEY = 'galeri_local_users';
+const LOCAL_DELETED_USERS_KEY = 'galeri_deleted_users';
+const LOCAL_PROJECTS_KEY = 'galeri_local_projects';
+const LOCAL_DELETED_PROJECTS_KEY = 'galeri_deleted_projects';
+
+let inMemoryLocalSubs = [];
+let inMemoryDeletedSubs = [];
+let inMemoryLocalUsers = [];
+let inMemoryDeletedUsers = [];
+let inMemoryLocalProjects = [];
+let inMemoryDeletedProjects = [];
+
+const getDeletedSet = (lsKey, inMemArr) => {
+  try {
+    const raw = localStorage.getItem(lsKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set([...parsed, ...inMemArr]);
+  } catch {
+    return new Set(inMemArr);
+  }
+};
+
+const persistDeleted = (lsKey, inMemArr, lsDataKey, getStoredFn, id) => {
+  const strId = String(id);
+  if (!inMemArr.includes(strId)) inMemArr.push(strId);
+  try {
+    const existing = Array.from(getDeletedSet(lsKey, inMemArr));
+    if (!existing.includes(strId)) {
+      localStorage.setItem(lsKey, JSON.stringify([...existing, strId]));
+    }
+    const rem = getStoredFn().filter((x) => String(x.id) !== strId);
+    if (lsDataKey) localStorage.setItem(lsDataKey, JSON.stringify(rem));
+  } catch {}
+};
+
+const getStoredJSON = (key, inMemArr) => {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const ids = new Set(parsed.map((x) => String(x.id)));
+    return [...parsed, ...inMemArr.filter((x) => !ids.has(String(x.id)))];
+  } catch {
+    return inMemArr;
+  }
+};
 
 const getStoredClasses = () => {
   try {
@@ -16,206 +64,239 @@ const getStoredClasses = () => {
         if (clean.length > 0) return clean;
       }
     }
-  } catch (e) {}
+  } catch {}
   return DEFAULT_CLASSES;
 };
 
-const LOCAL_SUBS_KEY = 'galeri_local_submissions';
-const LOCAL_DELETED_SUBS_KEY = 'galeri_deleted_submissions';
-let inMemoryLocalSubs = [];
-let inMemoryDeletedSubs = [];
+const getStoredSubmissions = () => getStoredJSON(LOCAL_SUBS_KEY, inMemoryLocalSubs);
+const getStoredUsers = () => getStoredJSON(LOCAL_USERS_KEY, inMemoryLocalUsers);
+const getStoredProjects = () => getStoredJSON(LOCAL_PROJECTS_KEY, inMemoryLocalProjects);
 
-const LOCAL_USERS_KEY = 'galeri_local_users';
-const LOCAL_DELETED_USERS_KEY = 'galeri_deleted_users';
-let inMemoryLocalUsers = [];
-let inMemoryDeletedUsers = [];
-
-const LOCAL_PROJECTS_KEY = 'galeri_local_projects';
-const LOCAL_DELETED_PROJECTS_KEY = 'galeri_deleted_projects';
-let inMemoryLocalProjects = [];
-let inMemoryDeletedProjects = [];
-
-const getDeletedSubmissionIds = () => {
-  try {
-    const raw = localStorage.getItem(LOCAL_DELETED_SUBS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return new Set([...parsed, ...inMemoryDeletedSubs]);
-  } catch {
-    return new Set(inMemoryDeletedSubs);
-  }
-};
-
-const persistDeletedSubmissionId = (id) => {
-  const strId = String(id);
-  if (!inMemoryDeletedSubs.includes(strId)) {
-    inMemoryDeletedSubs.push(strId);
-  }
-  try {
-    const existing = Array.from(getDeletedSubmissionIds());
-    if (!existing.includes(strId)) {
-      localStorage.setItem(LOCAL_DELETED_SUBS_KEY, JSON.stringify([...existing, strId]));
-    }
-    const remSubs = getStoredSubmissions().filter((s) => String(s.id) !== strId);
-    localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify(remSubs));
-  } catch {}
-};
-
-const getDeletedUserIds = () => {
-  try {
-    const raw = localStorage.getItem(LOCAL_DELETED_USERS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return new Set([...parsed, ...inMemoryDeletedUsers]);
-  } catch {
-    return new Set(inMemoryDeletedUsers);
-  }
-};
-
-const persistDeletedUserId = (id) => {
-  const strId = String(id);
-  if (!inMemoryDeletedUsers.includes(strId)) {
-    inMemoryDeletedUsers.push(strId);
-  }
-  try {
-    const existing = Array.from(getDeletedUserIds());
-    if (!existing.includes(strId)) {
-      localStorage.setItem(LOCAL_DELETED_USERS_KEY, JSON.stringify([...existing, strId]));
-    }
-    const remUsers = getStoredUsers().filter((u) => String(u.id) !== strId);
-    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(remUsers));
-  } catch {}
-};
-
-const getStoredProjects = () => {
-  try {
-    const raw = localStorage.getItem(LOCAL_PROJECTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const ids = new Set(parsed.map((p) => String(p.id)));
-    return [...parsed, ...inMemoryLocalProjects.filter((p) => !ids.has(String(p.id)))];
-  } catch {
-    return inMemoryLocalProjects;
-  }
-};
-
-const getDeletedProjectIds = () => {
-  try {
-    const raw = localStorage.getItem(LOCAL_DELETED_PROJECTS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return new Set([...parsed, ...inMemoryDeletedProjects]);
-  } catch {
-    return new Set(inMemoryDeletedProjects);
-  }
-};
-
-const persistLocalProject = (doc) => {
-  inMemoryLocalProjects = [doc, ...inMemoryLocalProjects.filter((p) => String(p.id) !== String(doc.id))];
-  try {
-    const existing = getStoredProjects().filter((p) => String(p.id) !== String(doc.id));
-    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify([doc, ...existing]));
-  } catch (e) {
-    console.warn('[LocalStorage] Quota reached for projects:', e);
-  }
-};
-
-const persistDeletedProjectId = (id) => {
-  const strId = String(id);
-  if (!inMemoryDeletedProjects.includes(strId)) {
-    inMemoryDeletedProjects.push(strId);
-  }
-  try {
-    const existing = Array.from(getDeletedProjectIds());
-    if (!existing.includes(strId)) {
-      localStorage.setItem(LOCAL_DELETED_PROJECTS_KEY, JSON.stringify([...existing, strId]));
-    }
-    const remProjects = getStoredProjects().filter((p) => String(p.id) !== strId);
-    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify(remProjects));
-  } catch {}
-};
-
-const getStoredSubmissions = () => {
-  try {
-    const deletedIds = getDeletedSubmissionIds();
-    const raw = localStorage.getItem(LOCAL_SUBS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const ids = new Set(parsed.map((s) => String(s.id)));
-    const all = [...parsed, ...inMemoryLocalSubs.filter((s) => !ids.has(String(s.id)))];
-    return all.filter((s) => !deletedIds.has(String(s.id)));
-  } catch {
-    return inMemoryLocalSubs;
-  }
-};
+const getDeletedSubmissionIds = () => getDeletedSet(LOCAL_DELETED_SUBS_KEY, inMemoryDeletedSubs);
+const getDeletedUserIds = () => getDeletedSet(LOCAL_DELETED_USERS_KEY, inMemoryDeletedUsers);
+const getDeletedProjectIds = () => getDeletedSet(LOCAL_DELETED_PROJECTS_KEY, inMemoryDeletedProjects);
 
 const persistLocalSubmission = (doc) => {
-  inMemoryLocalSubs = [doc, ...inMemoryLocalSubs.filter((s) => String(s.id) !== String(doc.id))];
+  const strId = String(doc.id);
+  inMemoryLocalSubs = [doc, ...inMemoryLocalSubs.filter((s) => String(s.id) !== strId)];
   try {
-    const existing = getStoredSubmissions().filter((s) => String(s.id) !== String(doc.id));
+    const existing = getStoredSubmissions().filter((s) => String(s.id) !== strId);
     localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify([doc, ...existing]));
-  } catch (e) {
-    console.warn('[LocalStorage] Quota reached for submissions:', e);
-  }
-};
-
-const getStoredUsers = () => {
-  try {
-    const deletedUserIds = getDeletedUserIds();
-    const raw = localStorage.getItem(LOCAL_USERS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const ids = new Set(parsed.map((u) => String(u.id)));
-    const all = [...parsed, ...inMemoryLocalUsers.filter((u) => !ids.has(String(u.id)))];
-    return all.filter((u) => !deletedUserIds.has(String(u.id)));
-  } catch {
-    return inMemoryLocalUsers;
-  }
+  } catch {}
 };
 
 const persistLocalUser = (doc) => {
-  inMemoryLocalUsers = [doc, ...inMemoryLocalUsers.filter((u) => String(u.id) !== String(doc.id))];
+  const strId = String(doc.id);
+  inMemoryLocalUsers = [doc, ...inMemoryLocalUsers.filter((u) => String(u.id) !== strId)];
   try {
-    const existing = getStoredUsers().filter((u) => String(u.id) !== String(doc.id));
+    const existing = getStoredUsers().filter((u) => String(u.id) !== strId);
     localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify([doc, ...existing]));
-  } catch (e) {
-    console.warn('[LocalStorage] Quota reached for users:', e);
-  }
+  } catch {}
 };
 
+const persistLocalProject = (doc) => {
+  const strId = String(doc.id);
+  inMemoryLocalProjects = [doc, ...inMemoryLocalProjects.filter((p) => String(p.id) !== strId)];
+  try {
+    const existing = getStoredProjects().filter((p) => String(p.id) !== strId);
+    localStorage.setItem(LOCAL_PROJECTS_KEY, JSON.stringify([doc, ...existing]));
+  } catch {}
+};
+
+const persistDeletedSubmissionId = (id) => {
+  persistDeleted(LOCAL_DELETED_SUBS_KEY, inMemoryDeletedSubs, LOCAL_SUBS_KEY, getStoredSubmissions, id);
+};
+const persistDeletedUserId = (id) => {
+  persistDeleted(LOCAL_DELETED_USERS_KEY, inMemoryDeletedUsers, LOCAL_USERS_KEY, getStoredUsers, id);
+};
+const persistDeletedProjectId = (id) => {
+  persistDeleted(LOCAL_DELETED_PROJECTS_KEY, inMemoryDeletedProjects, LOCAL_PROJECTS_KEY, getStoredProjects, id);
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const normalizeProject = (p) => {
+  let classId = p.classId || p.class_id || [];
+  if (typeof classId === 'string') {
+    classId = classId ? classId.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  }
+  let targetStudents = p.targetStudents || p.target_students || [];
+  if (typeof targetStudents === 'string') {
+    targetStudents = targetStudents ? targetStudents.split(',').map((s) => s.trim()).filter(Boolean) : [];
+  }
+  return { ...p, classId, targetStudents };
+};
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
 export const DataProvider = ({ children }) => {
+  const showToast = useToast();
   const [data, setData] = useState({
-    users: getStoredUsers(),
     classes: getStoredClasses(),
-    projects: getStoredProjects(),
-    submissions: getStoredSubmissions(),
+    users: [],
+    projects: [],
+    submissions: [],
   });
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const isSyncingToCloudRef = useRef(false);
-  const showToast = useToast();
+  const realtimeChannelRef = useRef(null);
 
-  const syncLocalSubmissionsToCloud = async (unSyncedList) => {
-    if (!unSyncedList || unSyncedList.length === 0 || isSyncingToCloudRef.current) return;
-    isSyncingToCloudRef.current = true;
+  // ── Load from Supabase (primary) with GAS fallback ──────────────────────────
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setIsSyncing(true);
 
     try {
-      console.log(`[AutoSync] Mendeteksi ${unSyncedList.length} karya lokal yang belum tersinkron ke cloud...`);
-      for (const item of unSyncedList) {
+      // Try Supabase first
+      let fromSupabase = false;
+      let classes = [], users = [], projects = [], submissions = [];
+
+      try {
+        const [clsRes, usrRes, prjRes, subRes] = await Promise.all([
+          supabase.from('classes').select('*'),
+          supabase.from('users').select('*'),
+          supabase.from('projects').select('*'),
+          supabase.from('submissions').select('*'),
+        ]);
+
+        // Only use Supabase data if at least ONE table has data or no error
+        const anyError = clsRes.error || usrRes.error || prjRes.error || subRes.error;
+        const anyData = (clsRes.data?.length || 0) + (usrRes.data?.length || 0) +
+          (prjRes.data?.length || 0) + (subRes.data?.length || 0);
+
+        if (!anyError && anyData > 0) {
+          classes = clsRes.data || [];
+          users = usrRes.data || [];
+          projects = (prjRes.data || []).map(normalizeProject);
+          submissions = subRes.data || [];
+          fromSupabase = true;
+          console.log('[Supabase] Data loaded:', { classes: classes.length, users: users.length, projects: projects.length, submissions: submissions.length });
+        } else if (anyError) {
+          console.warn('[Supabase] Error loading, falling back to GAS:', anyError?.message);
+        } else {
+          // Supabase tables are empty or not yet migrated — fall through to GAS
+          console.warn('[Supabase] Tables empty, falling back to GAS');
+        }
+      } catch (sbErr) {
+        console.warn('[Supabase] Network error, falling back to GAS:', sbErr.message);
+      }
+
+      if (!fromSupabase) {
+        // Fallback: GAS / GViz
+        const response = await callGas('getInitialData');
+        if (response) {
+          classes = response.classes || [];
+          users = response.users || [];
+          projects = (response.projects || []).map(normalizeProject);
+          submissions = response.submissions || [];
+        }
+      }
+
+      // ── Merge with local overrides ─────────────────────────────────────────
+      const deletedSubIds = getDeletedSubmissionIds();
+      const localSubs = getStoredSubmissions();
+      const remoteSubs = submissions.filter((s) => !deletedSubIds.has(String(s.id)));
+      const remoteSubIds = new Set(remoteSubs.map((s) => String(s.id)));
+      const mergedSubmissions = [
+        ...localSubs.filter((s) => !remoteSubIds.has(String(s.id)) && !deletedSubIds.has(String(s.id))),
+        ...remoteSubs,
+      ];
+
+      const deletedUserIds = getDeletedUserIds();
+      const localUsers = getStoredUsers();
+      const remoteUsers = users.filter((u) => !deletedUserIds.has(String(u.id)));
+      const localUserMap = new Map(localUsers.map((u) => [String(u.id), u]));
+      const mergedUsers = remoteUsers.map((ru) => {
+        const lu = localUserMap.get(String(ru.id));
+        return lu ? { ...ru, ...lu, photo: lu.photo || ru.photo || '' } : ru;
+      });
+      const remoteUserIds = new Set(remoteUsers.map((u) => String(u.id)));
+      for (const lu of localUsers) {
+        if (!remoteUserIds.has(String(lu.id))) mergedUsers.push(lu);
+      }
+
+      const deletedProjectIds = getDeletedProjectIds();
+      const localProjects = getStoredProjects();
+      const localProjectMap = new Map(localProjects.map((p) => [String(p.id), p]));
+      const remoteProjects = projects.filter((p) => !deletedProjectIds.has(String(p.id)));
+      const mergedProjects = remoteProjects.map((rp) => {
+        const lp = localProjectMap.get(String(rp.id));
+        return lp ? { ...rp, ...lp } : rp;
+      });
+      const remoteProjectIds = new Set(remoteProjects.map((p) => String(p.id)));
+      for (const lp of localProjects) {
+        if (!deletedProjectIds.has(String(lp.id)) && !remoteProjectIds.has(String(lp.id))) {
+          mergedProjects.unshift(lp);
+        }
+      }
+
+      const remoteClasses = classes.filter((c) => c && c.name && !c.name.startsWith('{'));
+      const finalClasses = remoteClasses.length > 0 ? remoteClasses : getStoredClasses();
+      try {
+        if (finalClasses.length > 0) localStorage.setItem(LOCAL_CLASSES_KEY, JSON.stringify(finalClasses));
+      } catch {}
+
+      setData({
+        classes: finalClasses.length > 0 ? finalClasses : DEFAULT_CLASSES,
+        users: mergedUsers,
+        projects: mergedProjects,
+        submissions: mergedSubmissions,
+      });
+
+      // Auto-sync locally-stuck submissions to Supabase
+      const unSyncedSubs = localSubs.filter((s) => {
+        if (!s || deletedSubIds.has(String(s.id))) return false;
+        const notInRemote = !remoteSubIds.has(String(s.id));
+        const hasRawFile = s.fileData && String(s.fileData).startsWith('data:');
+        const isLocalId = String(s.id).startsWith('ok-') || String(s.id).startsWith('doc-') || String(s.id).length < 20;
+        return notInRemote && (hasRawFile || isLocalId);
+      });
+      if (unSyncedSubs.length > 0 && !isSyncingToCloudRef.current) {
+        syncLocalSubmissionsToSupabase(unSyncedSubs);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      if (!silent) showToast('Gagal memuat data dari server', 'error');
+    }
+
+    if (!silent) setLoading(false);
+    else setIsSyncing(false);
+  }, []); // eslint-disable-line
+
+  // ── Auto-sync stuck local submissions to Supabase ───────────────────────────
+  const syncLocalSubmissionsToSupabase = async (unSynced) => {
+    if (isSyncingToCloudRef.current) return;
+    isSyncingToCloudRef.current = true;
+    try {
+      for (const item of unSynced) {
         try {
-          const { id: oldLocalId, ...payload } = item;
-          console.log('[AutoSync] Mengunggah karya:', payload.title || 'Tanpa Judul');
-          const remoteId = await callGas('addDocument', 'submissions', payload);
-          if (remoteId && !String(remoteId).startsWith('ok-')) {
-            console.log('[AutoSync] Sukses tersinkron ke Google Drive & Sheets! Remote ID:', remoteId);
+          const { id: oldLocalId, fileData, ...payload } = item;
+          console.log('[AutoSync] Mengunggah ke Supabase:', payload.title || 'Tanpa Judul');
+
+          // If fileData is a base64 DataURL, upload to storage
+          let storedFileData = fileData || '';
+          if (storedFileData.startsWith('data:')) {
+            storedFileData = await uploadKaryaFile(fileData, payload.fileName || `karya.${payload.fileExt || 'bin'}`);
+          }
+
+          const newRow = { ...payload, fileData: storedFileData };
+          const { data: inserted, error: insErr } = await supabase.from('submissions').insert(newRow).select();
+          if (!insErr && inserted && inserted[0]) {
+            const remoteId = inserted[0].id || oldLocalId;
+            console.log('[AutoSync] Sukses tersinkron ke Supabase! ID:', remoteId);
+            const updatedDoc = { ...newRow, id: remoteId };
             const currentStored = getStoredSubmissions().filter(
               (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
             );
-            const updatedDoc = { ...payload, id: remoteId };
             localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify([updatedDoc, ...currentStored]));
             inMemoryLocalSubs = [updatedDoc, ...inMemoryLocalSubs.filter((s) => String(s.id) !== String(oldLocalId))];
-            
-            // Perbarui state secara reaktif
             setData((prev) => ({
               ...prev,
               submissions: [
                 updatedDoc,
-                ...(prev.submissions || []).filter((s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId))
-              ]
+                ...(prev.submissions || []).filter((s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)),
+              ],
             }));
           }
         } catch (subErr) {
@@ -227,178 +308,132 @@ export const DataProvider = ({ children }) => {
     }
   };
 
-  const loadData = async (silent = false) => {
-    if (!silent) setLoading(true);
-    else setIsSyncing(true);
-
-    try {
-      // Pull centralized network sync for deleted items across all browsers/devices
-      try {
-        const syncRes = await fetch('/api/sync');
-        if (syncRes.ok) {
-          const syncData = await syncRes.json();
-          if (Array.isArray(syncData.deletedSubmissions)) {
-            syncData.deletedSubmissions.forEach((id) => persistDeletedSubmissionId(id));
-          }
-          if (Array.isArray(syncData.deletedProjects)) {
-            syncData.deletedProjects.forEach((id) => persistDeletedProjectId(id));
-          }
-          if (Array.isArray(syncData.deletedUsers)) {
-            syncData.deletedUsers.forEach((id) => persistDeletedUserId(id));
-          }
-        }
-      } catch (e) {}
-
-      const response = await callGas('getInitialData');
-      if (response) {
-        const deletedSubIds = getDeletedSubmissionIds();
-        const localSubs = getStoredSubmissions();
-        const remoteSubs = (response.submissions || []).filter(
-          (s) => !deletedSubIds.has(String(s.id))
-        );
-        const remoteIds = new Set(remoteSubs.map((s) => String(s.id)));
-
-        // Merge submissions: local submissions come first so latest uploads appear immediately!
-        const mergedSubmissions = [
-          ...localSubs.filter((s) => !remoteIds.has(String(s.id))),
-          ...remoteSubs,
-        ];
-
-        // Merge users: local user updates (like profile photo) take precedence so polling never wipes them out!
-        const deletedUserIds = getDeletedUserIds();
-        const localUsers = getStoredUsers();
-        const remoteUsers = (response.users || []).filter(
-          (u) => !deletedUserIds.has(String(u.id))
-        );
-        const localUserMap = new Map(localUsers.map((u) => [String(u.id), u]));
-
-        const mergedUsers = remoteUsers.map((ru) => {
-          const lu = localUserMap.get(String(ru.id));
-          if (lu) {
-            return {
-              ...ru,
-              ...lu,
-              photo: lu.photo || ru.photo || '',
-            };
-          }
-          return ru;
-        });
-
-        const remoteUserIds = new Set(remoteUsers.map((u) => String(u.id)));
-        for (const lu of localUsers) {
-          if (!remoteUserIds.has(String(lu.id))) {
-            mergedUsers.push(lu);
-          }
-        }
-
-        // Merge projects: filter deleted projects, prioritize local overrides (status, targets, deadline)
-        const deletedProjectIds = getDeletedProjectIds();
-        const localProjects = getStoredProjects();
-        const localProjectMap = new Map(localProjects.map((p) => [String(p.id), p]));
-        const remoteProjects = (response.projects || []).filter(
-          (p) => !deletedProjectIds.has(String(p.id))
-        );
-
-        const mergedProjects = remoteProjects.map((rp) => {
-          const lp = localProjectMap.get(String(rp.id));
-          if (lp) {
-            return {
-              ...rp,
-              ...lp,
-            };
-          }
-          return rp;
-        });
-
-        const remoteProjectIds = new Set(remoteProjects.map((p) => String(p.id)));
-        for (const lp of localProjects) {
-          if (!deletedProjectIds.has(String(lp.id)) && !remoteProjectIds.has(String(lp.id))) {
-            mergedProjects.unshift(lp);
-          }
-        }
-
-        // Cache & preserve valid classes
-        const remoteClasses = (response.classes && response.classes.length > 0)
-          ? response.classes.filter((c) => c && c.name && !c.name.startsWith('{'))
-          : getStoredClasses();
-
-        try {
-          if (remoteClasses.length > 0) {
-            localStorage.setItem(LOCAL_CLASSES_KEY, JSON.stringify(remoteClasses));
-          }
-        } catch (e) {}
-
-        setData({
-          ...response,
-          classes: remoteClasses.length > 0 ? remoteClasses : DEFAULT_CLASSES,
-          users: mergedUsers,
-          projects: mergedProjects,
-          submissions: mergedSubmissions,
-        });
-
-        // Auto-Sync: Deteksi karya siswa yang tersimpan di memori lokal laptop namun belum terkirim ke Google Drive/Sheets
-        const unSyncedSubs = localSubs.filter((s) => {
-          if (!s || deletedSubIds.has(String(s.id))) return false;
-          const notInRemote = !remoteIds.has(String(s.id));
-          const hasRawFile = s.fileData && String(s.fileData).startsWith('data:');
-          const isLocalId = String(s.id).startsWith('ok-') || String(s.id).startsWith('doc-') || String(s.id).length < 20;
-          return notInRemote && (hasRawFile || isLocalId);
-        });
-
-        if (unSyncedSubs.length > 0) {
-          syncLocalSubmissionsToCloud(unSyncedSubs);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-      if (!silent) showToast('Gagal memuat data dari server', 'error');
+  // ── Supabase Realtime subscription ──────────────────────────────────────────
+  const setupRealtimeSubscription = useCallback(() => {
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
     }
 
-    if (!silent) setLoading(false);
-    else setIsSyncing(false);
-  };
+    const channel = supabase
+      .channel('public:submissions')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'submissions' },
+        (payload) => {
+          console.log('[Realtime] Submission baru masuk:', payload.new?.id);
+          const newSub = payload.new;
+          if (!newSub) return;
+          setData((prev) => {
+            const exists = (prev.submissions || []).some((s) => String(s.id) === String(newSub.id));
+            if (exists) return prev;
+            return { ...prev, submissions: [newSub, ...prev.submissions] };
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'submissions' },
+        (payload) => {
+          const updated = payload.new;
+          if (!updated) return;
+          setData((prev) => ({
+            ...prev,
+            submissions: (prev.submissions || []).map((s) =>
+              String(s.id) === String(updated.id) ? { ...s, ...updated } : s
+            ),
+          }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'submissions' },
+        (payload) => {
+          const deleted = payload.old;
+          if (!deleted) return;
+          setData((prev) => ({
+            ...prev,
+            submissions: (prev.submissions || []).filter((s) => String(s.id) !== String(deleted.id)),
+          }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
+        () => loadData(true)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'users' },
+        () => loadData(true)
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Status:', status);
+      });
 
+    realtimeChannelRef.current = channel;
+  }, [loadData]);
+
+  // ── CRUD: addDocument ────────────────────────────────────────────────────────
   const addDocument = async (colName, docData) => {
     const fallbackId =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : 'doc-' + Date.now();
+
     let remoteId = null;
+    let finalDoc = { ...docData };
 
     try {
-      remoteId = await callGas('addDocument', colName, docData);
+      // For submissions, upload file to Supabase Storage first
+      if (colName === 'submissions' && finalDoc.fileData && finalDoc.fileData.startsWith('data:')) {
+        const uploadedUrl = await uploadKaryaFile(finalDoc.fileData, finalDoc.fileName || `karya.${finalDoc.fileExt || 'bin'}`);
+        finalDoc = { ...finalDoc, fileData: uploadedUrl };
+      }
+
+      const { data: inserted, error } = await supabase.from(colName).insert(finalDoc).select();
+      if (error) {
+        console.warn(`[Supabase] Insert ${colName} failed:`, error.message);
+        // Fallback to GAS
+        try {
+          remoteId = await callGas('addDocument', colName, docData);
+        } catch {}
+      } else if (inserted && inserted[0]) {
+        remoteId = inserted[0].id || fallbackId;
+        finalDoc = { ...finalDoc, id: remoteId };
+      }
     } catch (err) {
-      console.warn(`[DataContext] Remote addDocument failed for ${colName}, saving locally:`, err);
+      console.warn(`[DataContext] addDocument ${colName} error:`, err.message);
+      try {
+        remoteId = await callGas('addDocument', colName, docData);
+      } catch {}
     }
 
     const finalId = remoteId || fallbackId;
-    const newDoc = {
-      id: finalId,
-      ...docData,
-      createdAt: docData.createdAt || new Date().toISOString(),
-    };
+    const newDoc = { id: finalId, ...finalDoc, createdAt: finalDoc.createdAt || new Date().toISOString() };
 
     setData((prev) => ({
       ...prev,
       [colName]: [newDoc, ...(prev[colName] || []).filter((item) => String(item.id) !== String(finalId))],
     }));
 
-    if (colName === 'submissions') {
-      persistLocalSubmission(newDoc);
-    } else if (colName === 'users') {
-      persistLocalUser(newDoc);
-    } else if (colName === 'projects') {
-      persistLocalProject(newDoc);
-    }
+    if (colName === 'submissions') persistLocalSubmission(newDoc);
+    else if (colName === 'users') persistLocalUser(newDoc);
+    else if (colName === 'projects') persistLocalProject(newDoc);
 
     return finalId;
   };
 
+  // ── CRUD: updateDocument ─────────────────────────────────────────────────────
   const updateDocument = async (colName, id, updateData) => {
     try {
-      await callGas('updateDocument', colName, id, updateData);
+      const { error } = await supabase.from(colName).update(updateData).eq('id', id);
+      if (error) {
+        console.warn(`[Supabase] Update ${colName} failed:`, error.message);
+        try { await callGas('updateDocument', colName, id, updateData); } catch {}
+      }
     } catch (err) {
-      console.warn(`[DataContext] Remote updateDocument failed for ${colName}:`, err);
+      console.warn(`[DataContext] updateDocument ${colName}:`, err.message);
+      try { await callGas('updateDocument', colName, id, updateData); } catch {}
     }
 
     setData((prev) => {
@@ -415,20 +450,23 @@ export const DataProvider = ({ children }) => {
         const target = updatedList.find((item) => String(item.id) === String(id));
         if (target) persistLocalProject(target);
       }
-      return {
-        ...prev,
-        [colName]: updatedList,
-      };
+      return { ...prev, [colName]: updatedList };
     });
 
     return true;
   };
 
+  // ── CRUD: deleteDocument ─────────────────────────────────────────────────────
   const deleteDocument = async (colName, id) => {
     try {
-      await callGas('deleteDocument', colName, id);
+      const { error } = await supabase.from(colName).delete().eq('id', id);
+      if (error) {
+        console.warn(`[Supabase] Delete ${colName} failed:`, error.message);
+        try { await callGas('deleteDocument', colName, id); } catch {}
+      }
     } catch (err) {
-      console.warn(`[DataContext] Remote deleteDocument failed for ${colName}:`, err);
+      console.warn(`[DataContext] deleteDocument ${colName}:`, err.message);
+      try { await callGas('deleteDocument', colName, id); } catch {}
     }
 
     setData((prev) => ({
@@ -454,7 +492,7 @@ export const DataProvider = ({ children }) => {
       persistDeletedProjectId(id);
     }
 
-    // Send delete notification to server sync middleware so other devices get it immediately
+    // Also notify other devices via server sync endpoint
     fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -464,14 +502,23 @@ export const DataProvider = ({ children }) => {
     return true;
   };
 
+  // ── Lifecycle ────────────────────────────────────────────────────────────────
   useEffect(() => {
     loadData();
-    // Background polling every 12 seconds for real-time feel
+    setupRealtimeSubscription();
+
+    // Background polling every 15 seconds as extra safety net (Realtime handles instant updates)
     const interval = setInterval(() => {
       loadData(true);
-    }, 12000);
-    return () => clearInterval(interval);
-  }, []);
+    }, 15000);
+
+    return () => {
+      clearInterval(interval);
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+    };
+  }, []); // eslint-disable-line
 
   return (
     <DataContext.Provider
