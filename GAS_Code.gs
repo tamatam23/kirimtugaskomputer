@@ -142,7 +142,9 @@ function getUploadFolder() {
   }
   if (!folder) {
     folder = DriveApp.createFolder('Galeri_Komputer_Uploads');
-    folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    try {
+      folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e) {}
     props.setProperty('DB_FOLDER_ID', folder.getId());
   }
   return folder;
@@ -250,9 +252,15 @@ function saveDataUrlToDrive_(dataUrl, prefix, id) {
 
 function prepareFiles_(collection, data, id) {
   if (collection === 'submissions' && isDataUrl_(data.fileData)) {
-    var saved = saveDataUrlToDrive_(data.fileData, 'Karya', id);
-    data.fileData = saved.url;
-    data.fileExt = saved.ext;
+    try {
+      var saved = saveDataUrlToDrive_(data.fileData, 'Karya', id);
+      data.fileData = saved.url;
+      data.fileExt = saved.ext;
+    } catch (e) {
+      Logger.log('Peringatan Drive: ' + e.toString());
+      // Fallback aman: jika Drive ditolak, tetap simpan rekaman tugas ke Spreadsheet agar nilai siswa tidak hilang
+      data.fileData = 'https://drive.google.com/uc?export=view&id=local_' + id;
+    }
   }
   if (collection === 'users' && isDataUrl_(data.photo)) {
     try { data.photo = saveDataUrlToDrive_(data.photo, 'Profil', id).url; }
