@@ -2,7 +2,7 @@
 // Sheet ID: 1xqVsKnSEiasss2f_o7FY-F7cZy3Pyz5cMp-4J1tG6RM
 
 const SPREADSHEET_ID = '1xqVsKnSEiasss2f_o7FY-F7cZy3Pyz5cMp-4J1tG6RM';
-const DEFAULT_API_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/AKfycbxyVjg2bHGUEDsXCTQ8_rDO1qxNp-aoLDR2nISfov5TaS7bHXjTlyawf9m0NdcL9Whc/exec';
+const DEFAULT_API_URL = import.meta.env.VITE_GAS_API_URL || 'https://script.google.com/macros/s/AKfycbxtI0Nog9WEC_xH9LTVZC8OKiUMXdVbRiXXjHqu4UoNoC9Qhg2arSgeJWARKn1nRWkH/exec';
 
 export const DEFAULT_CLASSES = [
   { id: 'cc93f692-df1a-4727-a093-2c7718d68778', name: '4A', createdAt: '2026-11-07T14:24:59.505Z' },
