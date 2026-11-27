@@ -187,6 +187,14 @@ export const DataProvider = ({ children }) => {
     for (const s of localSubs) {
       if (!s || deletedSubIds.has(String(s.id))) continue;
       if (!s.fileData || String(s.fileData).trim().length === 0) continue;
+      
+      // PENTING: Hanya karya yang benar-benar tersimpan sebagai data base64 lokal
+      // (data:...) yang dianggap sebagai karya tersangkut yang belum terkirim.
+      // Jika fileData sudah berupa URL cloud (http/https), artinya karya tersebut sudah
+      // pernah terkirim ke server, dan jika sekarang tidak ada di remoteSubs,
+      // artinya karya tersebut TELAH DIHAPUS OLEH GURU. Jangan pernah dimunculkan lagi!
+      if (!String(s.fileData).startsWith('data:')) continue;
+
       if (remoteSubIds.has(String(s.id))) continue;
 
       const pairKey =
@@ -267,8 +275,31 @@ export const DataProvider = ({ children }) => {
       const localSubs = getStoredSubmissions();
       const remoteSubs = submissions.filter((s) => !deletedSubIds.has(String(s.id)));
       const remoteSubIds = new Set(remoteSubs.map((s) => String(s.id)));
+
+      // Bersihkan localSubs:
+      // Hanya simpan karya yang memang merupakan draft offline (fileData diawali 'data:')
+      // Jika karya sudah berformat URL http/https dan tidak ada di remoteSubs,
+      // artinya karya tersebut sudah dihapus Guru dari database -> bersihkan dari localStorage!
+      const validLocalDrafts = [];
+      for (const s of localSubs) {
+        if (!s) continue;
+        const strId = String(s.id);
+        if (deletedSubIds.has(strId)) continue;
+        if (remoteSubIds.has(strId)) continue; // sudah ada di server, tidak perlu disimpan lokal
+        if (s.fileData && (String(s.fileData).startsWith('http://') || String(s.fileData).startsWith('https://'))) {
+          // File cloud yang tidak ada di remoteSubs -> artinya sudah dihapus oleh Guru
+          persistDeletedSubmissionId(strId);
+          continue;
+        }
+        validLocalDrafts.push(s);
+      }
+      try {
+        localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify(validLocalDrafts));
+      } catch {}
+      inMemoryLocalSubs = validLocalDrafts;
+
       const mergedSubmissions = [
-        ...localSubs.filter((s) => !remoteSubIds.has(String(s.id)) && !deletedSubIds.has(String(s.id))),
+        ...validLocalDrafts.filter((s) => !remoteSubIds.has(String(s.id))),
         ...remoteSubs,
       ];
 
@@ -369,19 +400,19 @@ export const DataProvider = ({ children }) => {
     const remoteId = inserted[0].id || newId;
     const updatedDoc = { ...inserted[0], ...dbRow, id: remoteId };
 
-    // Perbarui cache lokal agar item tidak muncul lagi di popup rescue
+    // PENTING: Karya yang baru saja di-push SUDAH BERADA DI SERVER SUPABASE.
+    // Hapus karya ini sepenuhnya dari antrean lokal (localStorage) agar tidak pernah
+    // muncul lagi sebagai "karya tersangkut" jika suatu saat guru menghapusnya!
     const currentStored = getStoredSubmissions().filter(
-      (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
+      (s) =>
+        String(s.id) !== String(oldLocalId) &&
+        String(s.id) !== String(remoteId) &&
+        !(s.studentId && s.projectId && String(s.studentId) === String(payload.studentId) && String(s.projectId) === String(payload.projectId))
     );
     try {
-      localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify([updatedDoc, ...currentStored]));
+      localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify(currentStored));
     } catch {}
-    inMemoryLocalSubs = [
-      updatedDoc,
-      ...inMemoryLocalSubs.filter(
-        (s) => String(s.id) !== String(oldLocalId) && String(s.id) !== String(remoteId)
-      ),
-    ];
+    inMemoryLocalSubs = currentStored;
 
     setData((prev) => ({
       ...prev,
@@ -460,10 +491,27 @@ export const DataProvider = ({ children }) => {
         { event: 'DELETE', schema: 'public', table: 'submissions' },
         (payload) => {
           const deleted = payload.old;
-          if (!deleted) return;
+          if (!deleted || !deleted.id) return;
+          const deletedId = String(deleted.id);
+          console.log('[Realtime] Submission dihapus dari server:', deletedId);
+
+          // 1. Catat ID yang dihapus agar tidak dimunculkan kembali oleh loadData
+          persistDeletedSubmissionId(deletedId);
+
+          // 2. Bersihkan dari local submissions
+          inMemoryLocalSubs = inMemoryLocalSubs.filter((s) => String(s.id) !== deletedId);
+          try {
+            const remaining = getStoredSubmissions().filter((s) => String(s.id) !== deletedId);
+            localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify(remaining));
+          } catch {}
+
+          // 3. Bersihkan dari daftar pending popup rescue
+          setPendingLocalSubmissions((prev) => prev.filter((s) => String(s.id) !== deletedId));
+
+          // 4. Perbarui data React
           setData((prev) => ({
             ...prev,
-            submissions: (prev.submissions || []).filter((s) => String(s.id) !== String(deleted.id)),
+            submissions: (prev.submissions || []).filter((s) => String(s.id) !== deletedId),
           }));
         }
       )
@@ -529,8 +577,23 @@ export const DataProvider = ({ children }) => {
       [colName]: [newDoc, ...(prev[colName] || []).filter((item) => String(item.id) !== String(finalId))],
     }));
 
-    if (colName === 'submissions') persistLocalSubmission(newDoc);
-    else if (colName === 'users') persistLocalUser(newDoc);
+    if (colName === 'submissions') {
+      if (remoteId) {
+        // Jika sukses tersimpan ke server remote, bersihkan draft lokal agar tidak menjadi "karya tersangkut"
+        try {
+          const remaining = getStoredSubmissions().filter(
+            (s) =>
+              String(s.id) !== String(finalId) &&
+              !(s.studentId && s.projectId && String(s.studentId) === String(newDoc.studentId) && String(s.projectId) === String(newDoc.projectId))
+          );
+          localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify(remaining));
+          inMemoryLocalSubs = remaining;
+        } catch {}
+      } else {
+        // Hanya jika gagal terhubung ke server (offline), simpan ke penyimpanan lokal
+        persistLocalSubmission(newDoc);
+      }
+    } else if (colName === 'users') persistLocalUser(newDoc);
     else if (colName === 'projects') persistLocalProject(newDoc);
 
     return finalId;
@@ -597,12 +660,14 @@ export const DataProvider = ({ children }) => {
     }));
 
     if (colName === 'submissions') {
-      persistDeletedSubmissionId(id);
-      inMemoryLocalSubs = inMemoryLocalSubs.filter((s) => String(s.id) !== String(id));
+      const strId = String(id);
+      persistDeletedSubmissionId(strId);
+      inMemoryLocalSubs = inMemoryLocalSubs.filter((s) => String(s.id) !== strId);
       try {
-        const remaining = getStoredSubmissions().filter((s) => String(s.id) !== String(id));
+        const remaining = getStoredSubmissions().filter((s) => String(s.id) !== strId);
         localStorage.setItem(LOCAL_SUBS_KEY, JSON.stringify(remaining));
       } catch {}
+      setPendingLocalSubmissions((prev) => prev.filter((s) => String(s.id) !== strId));
     } else if (colName === 'users') {
       persistDeletedUserId(id);
       inMemoryLocalUsers = inMemoryLocalUsers.filter((u) => String(u.id) !== String(id));

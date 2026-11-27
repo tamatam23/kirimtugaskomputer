@@ -2200,3 +2200,32 @@
 3. **Verifikasi:**
    * Vite production build `npm run build` sukses 100% tanpa error (Exit code 0, 7.30s).
    * Seluruh kode siap di-commit dan di-push via GitHub Desktop.
+
+---
+
+## 66. Catatan Pembaruan (Update Tanggal 27 Nov 2026, 20:40 WIB) — Perbaikan Kritis: Sinkronisasi Penghapusan Guru & Pencegahan Pop-up Memunculkan Kembali File yang Sudah Dihapus
+1. **Laporan Masalah dari Pengguna:**
+   * Guru menguji kirim/upload gambar pada akun siswa (Ghandi Abidarin, Kelas 6A) di project "tes". Upload sukses masuk.
+   * Guru membuka akun guru dan menghapus gambar tersebut dari Galeri Guru. File langsung terhapus cepat dari halaman guru.
+   * Saat kembali membuka halaman upload karya di akun siswa, tiba-tiba muncul pop-up rescue yang menyatakan ada file nyangkut di laptop siswa.
+   * Saat tombol "Kirim" diklik, gambar yang sudah dihapus oleh guru tersebut malah muncul kembali di halaman siswa, tetapi tidak muncul di halaman guru.
+2. **Penyebab Akar Masalah (*Root Cause Analysis*):**
+   * **Penyimpanan Ganda pada Upload Baru:** Saat `addDocument('submissions')` sukses mengirim karya ke Supabase, sistem sebelumnya tetap menyimpan salinan dokumen ke `localStorage` (`galeri_local_submissions`).
+   * **Deteksi "Tersangkut" Tanpa Memeriksa Tipe File:** Fungsi `computePendingLocal` hanya memeriksa apakah ID lokal ada di `remoteSubs`. Ketika guru menghapus file dari Supabase, baris di Supabase hilang, sehingga `computePendingLocal` keliru mengira salinan di `localStorage` adalah file offline yang belum terkirim, lalu memunculkan pop-up penyelamat.
+   * **Realtime DELETE Tidak Membersihkan Cache Lokal:** Saat guru menghapus file, event Realtime DELETE Supabase hanya memfilter state React `data.submissions`, namun tidak menghapus ID dari `galeri_local_submissions` laptop siswa.
+   * **Penggabungan Buta pada `loadData()`:** Fungsi `loadData()` menggabungkan seluruh isi `localSubs` ke `data.submissions` siswa, sehingga siswa melihat file yang sebenarnya sudah dihapus guru dari Supabase.
+3. **Solusi & Implementasi Komprehensif ([DataContext.jsx](file:///d:/kirimtugaskomputer/src/context/DataContext.jsx) & [LocalRescueModal.jsx](file:///d:/kirimtugaskomputer/src/components/common/LocalRescueModal.jsx)):**
+   * **Penyaringan Khusus Data Base64 pada `computePendingLocal`:**
+     - Ditambahkan syarat mutlak: `if (!String(s.fileData).startsWith('data:')) continue;`.
+     - File yang sudah berformat URL Supabase Storage (`https://...`) dipastikan adalah file yang sudah pernah diunggah ke cloud. Jika tidak ada di Supabase, berarti telah dihapus oleh Guru, sehingga **TIDAK AKAN PERNAH** dimunculkan lagi oleh pop-up penyelamat.
+   * **Pembersihan Otomatis pada `loadData()`:**
+     - Seluruh entri lokal berformat `https://` yang tidak ada di Supabase otomatis dibersihkan dari `localStorage` dan dicatat ke `persistDeletedSubmissionId`. Siswa tidak akan lagi melihat karya yang telah dihapus guru.
+   * **Realtime DELETE Menghapus Menyeluruh:**
+     - Saat guru menghapus file, event Realtime Supabase di browser siswa kini otomatis menghapus file dari React state, membersihkannya dari `localStorage`, dan mencatatnya ke daftar `deletedSubIds`.
+   * **Upload Baru Tidak Mengotori `localStorage`:**
+     - `addDocument` hanya menyimpan ke `galeri_local_submissions` jika pengiriman ke Supabase gagal (offline). Jika sukses ke Supabase, antrean lokal langsung dibersihkan.
+   * **Pembersihan Penuh saat Push di Modal Rescue:**
+     - Fungsi `pushSingleLocalSubmission` kini langsung menghapus karya yang telah berhasil diunggah dari `localStorage` (tidak menyimpannya kembali ke local storage).
+4. **Verifikasi:**
+   * `npm run build` sukses 100% tanpa error (Exit code 0, 10.54s).
+   * File yang dihapus guru kini hilang permanen baik di halaman guru maupun di halaman siswa, serta tidak akan memicu pop-up penyelamat lagi.

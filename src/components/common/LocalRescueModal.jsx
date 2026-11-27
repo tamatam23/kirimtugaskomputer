@@ -42,9 +42,11 @@ export const LocalRescueModal = ({ isOpen, onClose, isLegacyDomain = false }) =>
   useEffect(() => {
     if (isOpen && !isPushing) {
       setItems((prev) => {
-        if (!pendingLocalSubmissions || pendingLocalSubmissions.length === 0) return prev;
-        // Pertahankan item yang sudah 'done' di sesi modal ini, tambahkan item pending terbaru
         const doneItems = prev.filter((p) => statuses[p.id] === 'done');
+        if (!pendingLocalSubmissions || pendingLocalSubmissions.length === 0) {
+          return doneItems;
+        }
+        // Pertahankan item yang sudah 'done' di sesi modal ini, tambahkan item pending terbaru
         const pendingIds = new Set(pendingLocalSubmissions.map((p) => String(p.id)));
         const merged = [
           ...pendingLocalSubmissions,
